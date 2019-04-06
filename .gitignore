@@ -1,5 +1,6 @@
 __pycache__/
 input/
+kernels/
 models/
 output/
 submissions/
