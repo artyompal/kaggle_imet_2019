@@ -65,7 +65,7 @@ class Dataset(data.Dataset):
         image = self.transforms(image)
 
         if self.mode == 'test':
-            return image, ''
+            return image, np.zeros(self.num_classes)
         else:
             labels = list(map(int, self.df.iloc[index, 1].split()))
             targets = np.zeros(self.num_classes, dtype=np.float32)

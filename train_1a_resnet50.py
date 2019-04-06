@@ -221,7 +221,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]
 
     predicts = np.concatenate(predicts_list)
     targets = np.concatenate(targets_list)
-    return torch.tensor(predicts), torch.tensor(targets)
+    return predicts, targets
 
 def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     ''' Calculates validation score.
@@ -231,9 +231,10 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     logger.info('validate()')
 
     predicts, targets = inference(val_loader, model)
+    predicts, targets = torch.tensor(predicts), torch.tensor(targets)
     best_score, best_thresh = 0.0, 0.0
 
-    for threshold in tqdm(np.linspace(0.01, 0.99, 99)):
+    for threshold in tqdm(np.linspace(0.40, 0.60, 40)):
         score = F_score(predicts, targets, threshold=threshold)
 
         if score > best_score:
@@ -248,12 +249,14 @@ def generate_submission(val_loader: Any, test_loader: Any, model: Any,
     score, threshold = validate(val_loader, model, epoch)
     predicts, _ = inference(test_loader, model)
 
-    labels = [" ".join(map(str, pred > threshold)) for pred in predicts]
-    print('labels')
-    print(np.array(labels))
+    dprint(predicts.shape)
+    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > threshold])
+              for pred in tqdm(predicts)]
+    dprint(len(labels))
+    dprint(np.array(labels))
 
     sub = test_loader.dataset.df
-    sub.Id = labels
+    sub['attribute_ids'] = labels
     sub_name = f'submissions_{os.path.basename(model_path)[:-4]}.csv'
     sub.to_csv(sub_name, index=False)
 
