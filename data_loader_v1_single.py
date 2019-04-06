@@ -14,8 +14,9 @@ from PIL import Image
 SAVE_DEBUG_IMAGES = False
 VERSION = os.path.basename(__file__)[12:-3]
 
+
 class Dataset(data.Dataset):
-    def __init__(self, dataframe: pd.DataFrame, path: str, mode: str,
+    def __init__(self, dataframe: pd.DataFrame, path: str, mode: str, num_classes: int,
                  image_size: int = 0, oversample: int = 1, augmentor: Any = None,
                  resize: bool = True) -> None:
         print('creating data loader', VERSION)
@@ -24,6 +25,7 @@ class Dataset(data.Dataset):
         self.df = dataframe
         self.path = path
         self.mode = mode
+        self.num_classes = num_classes
         self.image_size = image_size
         self.augmentor = augmentor
         self.resize = resize
@@ -65,7 +67,10 @@ class Dataset(data.Dataset):
         if self.mode == 'test':
             return image, ''
         else:
-            return image, self.df.iloc[index, 1]
+            labels = list(map(int, self.df.iloc[index, 1].split()))
+            targets = np.zeros(self.num_classes, dtype=np.float32)
+            targets[labels] = 1
+            return image, targets
 
     def __len__(self) -> int:
         count = self.df.shape[0]

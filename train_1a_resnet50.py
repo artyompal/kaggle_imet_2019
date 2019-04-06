@@ -23,13 +23,11 @@ import torchsummary
 import pretrainedmodels
 import PIL
 
-
-print(pretrainedmodels.model_names)
-
 from data_loader_v1_single import Dataset
 from utils import create_logger, AverageMeter, F_score
 from debug import dprint, assert_eq, assert_ne
 from cosine_scheduler import CosineLRWithRestarts
+from tqdm import tqdm
 
 
 opt = edict()
@@ -37,7 +35,7 @@ opt = edict()
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'resnet50'
 # opt.MODEL.IMAGE_SIZE = 256
-# opt.MODEL.INPUT_SIZE = 224 # crop size
+opt.MODEL.INPUT_SIZE = 224 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
 opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
@@ -115,11 +113,14 @@ def load_data(fold: int) -> Any:
     # ])
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
-                            # image_size=opt.MODEL.IMAGE_SIZE,
+                            num_classes=opt.MODEL.NUM_CLASSES,
+                            image_size=opt.MODEL.INPUT_SIZE,
                             augmentor=transform_train)
 
-    val_dataset = Dataset(val_df, opt.TRAIN.PATH, 'val') # opt.MODEL.IMAGE_SIZE)
-    test_dataset = Dataset(test_df, opt.TEST.PATH, 'test') # opt.MODEL.IMAGE_SIZE)
+    val_dataset = Dataset(val_df, path=opt.TRAIN.PATH, mode='val', # opt.MODEL.IMAGE_SIZE)
+                          num_classes=opt.MODEL.NUM_CLASSES)
+    test_dataset = Dataset(test_df, path=opt.TEST.PATH, mode='test', # opt.MODEL.IMAGE_SIZE)
+                           num_classes=opt.MODEL.NUM_CLASSES)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=opt.TRAIN.BATCH_SIZE, shuffle=True,
@@ -136,7 +137,7 @@ def load_data(fold: int) -> Any:
 def create_model() -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    logger.info("=> using pre-trained model '{}'".format(opt.MODEL.ARCH ))
+    logger.info("using model '{}'".format(opt.MODEL.ARCH ))
     model = models.__dict__[opt.MODEL.ARCH](pretrained=True)
 
     # assert(opt.MODEL.INPUT_SIZE % 32 == 0)
@@ -172,13 +173,12 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
             break
 
         # compute output
-        target_cuda = target.cuda()
-        output = model(input_.cuda(), target_cuda)
+        output = model(input_.cuda())
         loss = criterion(output, target.cuda())
 
         # get metric
-        predict = output.detach().cpu().numpy() > 0.5
-        avg_score.update(F_score(predict, target.numpy()))
+        predict = (output.detach() > 0.5).type(torch.FloatTensor)
+        avg_score.update(F_score(predict, target))
 
         # compute gradient and do SGD step
         losses.update(loss.data.item(), input_.size(0))
@@ -209,7 +209,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[np.ndarray, np.ndarray]:
     predicts_list, targets_list = [], []
 
     with torch.no_grad():
-        for i, (input_, target) in enumerate(data_loader):
+        for i, (input_, target) in tqdm(enumerate(data_loader)):
             output = model(input_.cuda())
             output = sigmoid(output)
 
