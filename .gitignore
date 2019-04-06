@@ -2,3 +2,6 @@ __pycache__/
 input/
 models/
 output/
+submissions/
+submission.py
+*.csv
