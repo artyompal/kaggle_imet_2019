@@ -117,9 +117,11 @@ def load_data(fold: int) -> Any:
                             image_size=opt.MODEL.INPUT_SIZE,
                             augmentor=transform_train)
 
-    val_dataset = Dataset(val_df, path=opt.TRAIN.PATH, mode='val', # opt.MODEL.IMAGE_SIZE)
+    val_dataset = Dataset(val_df, path=opt.TRAIN.PATH, mode='val',
+                          image_size=opt.MODEL.INPUT_SIZE,
                           num_classes=opt.MODEL.NUM_CLASSES)
-    test_dataset = Dataset(test_df, path=opt.TEST.PATH, mode='test', # opt.MODEL.IMAGE_SIZE)
+    test_dataset = Dataset(test_df, path=opt.TEST.PATH, mode='test',
+                           image_size=opt.MODEL.INPUT_SIZE,
                            num_classes=opt.MODEL.NUM_CLASSES)
 
     train_loader = torch.utils.data.DataLoader(
@@ -146,8 +148,8 @@ def create_model() -> Any:
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
 
-    if torch.cuda.device_count() == 1:
-        torchsummary.summary(model, (3, 224, 224))
+    # if torch.cuda.device_count() == 1:
+    #     torchsummary.summary(model, (3, 224, 224))
 
     return model
 
@@ -199,17 +201,17 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
                         f'loss {losses.val:.4f} ({losses.avg:.4f})\t'
                         f'F2 {avg_score.val:.4f} ({avg_score.avg:.4f})')
 
-    logger.info(f' * accuracy on train {avg_score.avg:.4f}')
+    logger.info(f' * average accuracy on train {avg_score.avg:.4f}')
 
-def inference(data_loader: Any, model: Any) -> Tuple[np.ndarray, np.ndarray]:
+def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]:
     ''' Returns predictions and targets, if any. '''
     model.eval()
 
-    sigmoid = nn.Sigmoid(dim=1)
+    sigmoid = nn.Sigmoid()
     predicts_list, targets_list = [], []
 
     with torch.no_grad():
-        for i, (input_, target) in tqdm(enumerate(data_loader)):
+        for i, (input_, target) in enumerate(tqdm(data_loader)):
             output = model(input_.cuda())
             output = sigmoid(output)
 
@@ -219,7 +221,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[np.ndarray, np.ndarray]:
 
     predicts = np.concatenate(predicts_list)
     targets = np.concatenate(targets_list)
-    return predicts, targets
+    return torch.tensor(predicts), torch.tensor(targets)
 
 def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     ''' Calculates validation score.
@@ -229,9 +231,9 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     logger.info('validate()')
 
     predicts, targets = inference(val_loader, model)
-    USE_PERCENTILE = False
+    best_score, best_thresh = 0.0, 0.0
 
-    for threshold in np.linspace(0.01, 0.99, 99):
+    for threshold in tqdm(np.linspace(0.01, 0.99, 99)):
         score = F_score(predicts, targets, threshold=threshold)
 
         if score > best_score:
