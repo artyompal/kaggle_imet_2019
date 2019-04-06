@@ -5,3 +5,4 @@ output/
 submissions/
 submission.py
 *.csv
+*.csv.py

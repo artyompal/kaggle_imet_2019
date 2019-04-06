@@ -82,7 +82,7 @@ opt.TEST.CSV = f'input/sample_submission.csv'
 
 
 def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    kf = KFold(n_splits=opt.TRAIN.NUM_FOLDS, shuffle=False)
+    kf = KFold(n_splits=opt.TRAIN.NUM_FOLDS, shuffle=True, random_state=0)
     train_idx, val_idx = list(kf.split(df))[fold]
     return df.iloc[train_idx], df.iloc[val_idx]
 
