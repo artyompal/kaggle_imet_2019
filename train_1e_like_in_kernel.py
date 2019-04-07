@@ -344,6 +344,7 @@ if __name__ == '__main__':
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_checkpoint["epoch"]}')
+        set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.predict:
