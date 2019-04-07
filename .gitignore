@@ -7,3 +7,4 @@ submissions/
 submission.py
 *.csv
 *.csv.py
+*.pth
