@@ -18,9 +18,10 @@ VERSION = os.path.basename(__file__)[12:-3]
 class Dataset(data.Dataset):
     def __init__(self, dataframe: pd.DataFrame, path: str, mode: str, num_classes: int,
                  image_size: int = 0, oversample: int = 1, augmentor: Any = None,
-                 resize: bool = True) -> None:
-        print('creating data loader', VERSION)
+                 resize: bool = True, num_tta: int = 1) -> None:
+        print(f'creating data loader {VERSION} in mode={mode}')
         assert mode in ['train', 'val', 'test']
+        assert mode != 'train' or num_tta == 1
 
         self.df = dataframe
         self.path = path
@@ -29,12 +30,23 @@ class Dataset(data.Dataset):
         self.image_size = image_size
         self.augmentor = augmentor
         self.resize = resize
+        self.num_tta = num_tta
 
         self.transforms = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                   std=[0.229, 0.224, 0.225]),
         ])
+
+    def _transform_image(self, image: Image, index: int) -> torch.tensor:
+        if self.augmentor is not None:
+            image = self.augmentor(image)
+
+        if SAVE_DEBUG_IMAGES:
+            os.makedirs(f'../debug_images_{VERSION}/', exist_ok=True)
+            Image.fromarray(image).save(f'../debug_images_{VERSION}/{index}.png')
+
+        return self.transforms(image)
 
     def __getitem__(self, index: int) -> Any:
         ''' Returns: tuple (sample, target) '''
@@ -55,20 +67,18 @@ class Dataset(data.Dataset):
         # assert image.dtype == np.uint8
         # assert image.shape == (self.image_size, self.image_size, 3)
 
-        if self.augmentor is not None:
-            image = self.augmentor(image)
+        if self.num_tta == 1:
+            image = self._transform_image(image, index)
+        else:
+            image = torch.stack([self._transform_image(image, index) for _ in range(self.num_tta)])
 
-        if SAVE_DEBUG_IMAGES:
-            os.makedirs(f'../debug_images_{VERSION}/', exist_ok=True)
-            Image.fromarray(image).save(f'../debug_images_{VERSION}/{index}.png')
-
-        image = self.transforms(image)
+        # print(image.size())
         targets = np.zeros(self.num_classes, dtype=np.float32)
 
         if self.mode != 'test':
             labels = list(map(int, self.df.iloc[index, 1].split()))
             targets[labels] = 1
-            
+
         return image, targets
 
     def __len__(self) -> int:
