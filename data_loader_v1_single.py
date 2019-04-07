@@ -55,7 +55,7 @@ class Dataset(data.Dataset):
         # assert image.dtype == np.uint8
         # assert image.shape == (self.image_size, self.image_size, 3)
 
-        if self.mode == 'train' and self.augmentor is not None:
+        if self.augmentor is not None:
             image = self.augmentor(image)
 
         if SAVE_DEBUG_IMAGES:
@@ -63,14 +63,13 @@ class Dataset(data.Dataset):
             Image.fromarray(image).save(f'../debug_images_{VERSION}/{index}.png')
 
         image = self.transforms(image)
+        targets = np.zeros(self.num_classes, dtype=np.float32)
 
-        if self.mode == 'test':
-            return image, np.zeros(self.num_classes)
-        else:
+        if self.mode != 'test':
             labels = list(map(int, self.df.iloc[index, 1].split()))
-            targets = np.zeros(self.num_classes, dtype=np.float32)
             targets[labels] = 1
-            return image, targets
+            
+        return image, targets
 
     def __len__(self) -> int:
         count = self.df.shape[0]

@@ -231,7 +231,7 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     predicts, targets = torch.tensor(predicts), torch.tensor(targets)
     best_score, best_thresh = 0.0, 0.0
 
-    for threshold in tqdm(np.linspace(0.40, 0.60, 40)):
+    for threshold in tqdm(np.linspace(0.01, 0.99, 99)):
         score = F_score(predicts, targets, threshold=threshold)
 
         if score > best_score:

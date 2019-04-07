@@ -49,15 +49,14 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def F_score(logit: np.array, label: np.array, threshold:float=0.5, beta:int=2) -> float:
-    prob = torch.sigmoid(logit)
-    prob = prob > threshold
+def F_score(predict: np.array, label: np.array, threshold:float=0.5, beta:int=2) -> float:
+    predict = predict > threshold
     label = label > threshold
 
-    TP = (prob & label).sum(1).float()
-    TN = ((~prob) & (~label)).sum(1).float()
-    FP = (prob & (~label)).sum(1).float()
-    FN = ((~prob) & label).sum(1).float()
+    TP = (predict & label).sum(1).float()
+    TN = ((~predict) & (~label)).sum(1).float()
+    FP = (predict & (~label)).sum(1).float()
+    FN = ((~predict) & label).sum(1).float()
 
     precision = TP / (TP + FP + 1e-12)
     recall = TP / (TP + FN + 1e-12)
