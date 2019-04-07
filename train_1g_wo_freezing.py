@@ -68,7 +68,6 @@ opt.TRAIN.PATH = 'input/train'
 opt.TRAIN.CSV = 'input/train.csv'
 opt.TRAIN.OPTIMIZER = 'Adam'
 opt.TRAIN.MIN_IMPROVEMENT = 0.001
-opt.TRAIN.RESUME = None if len(sys.argv) == 1 else sys.argv[-1]
 
 opt.TRAIN.COSINE = edict()
 opt.TRAIN.COSINE.ENABLE = False
