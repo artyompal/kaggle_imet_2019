@@ -329,7 +329,7 @@ if __name__ == '__main__':
     print("available models:", pretrainedmodels.model_names)
     train_loader, val_loader, test_loader = load_data(args.fold)
     model = create_model()
-    freeze_layers(model)
+    # freeze_layers(model)
 
     # if torch.cuda.device_count() == 1:
     #     torchsummary.summary(model, (3, 224, 224))
