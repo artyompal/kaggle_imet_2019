@@ -77,7 +77,7 @@ opt.TEST = edict()
 opt.TEST.PATH = f'input/test'
 opt.TEST.CSV = f'input/sample_submission.csv'
 opt.TEST.NUM_TTAS = 4
-opt.TEST.TTA_COMBINE_FUNC = 'max'
+opt.TEST.TTA_COMBINE_FUNC = 'mean'
 
 
 def make_folds(df: pd.DataFrame) -> pd.DataFrame:
