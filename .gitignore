@@ -8,3 +8,4 @@ submission.py
 *.csv
 *.csv.py
 *.pth
+*.npz
