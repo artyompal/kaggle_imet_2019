@@ -33,7 +33,7 @@ from tqdm import tqdm
 opt = edict()
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'resnet50'
+opt.MODEL.ARCH = 'se_resnext50_32x4d'
 # opt.MODEL.IMAGE_SIZE = 256
 opt.MODEL.INPUT_SIZE = 288 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
@@ -53,7 +53,7 @@ opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = 12
 opt.TRAIN.PRINT_FREQ = 100
-opt.TRAIN.LEARNING_RATE = 1e-4
+opt.TRAIN.LEARNING_RATE = 1e-5
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
