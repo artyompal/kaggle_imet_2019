@@ -6,7 +6,7 @@ import numpy as np, pandas as pd
 from tqdm import tqdm
 
 if __name__ == '__main__':
-    if len(sys.argv) < 6 or len(sys.argv) % 2 != 0:
+    if len(sys.argv) < 4 or len(sys.argv) % 2 != 0:
         print(f'usage: {sys.argv[0]} result.csv submission1.csv weight1...')
         sys.exit()
 
@@ -24,13 +24,11 @@ if __name__ == '__main__':
         print(f'reading {pred}, weight={w}')
 
         data = np.load(pred)
-        result += data['predicts'] * w
-
-    threshold = 0.1
+        result += (data['predicts'] - data['threshold']) * w
 
     dprint(result.shape)
     dprint(result)
-    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > threshold])
+    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
               for pred in tqdm(result)]
     dprint(len(labels))
     dprint(np.array(labels))
