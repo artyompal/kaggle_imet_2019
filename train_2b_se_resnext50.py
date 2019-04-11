@@ -432,6 +432,7 @@ if __name__ == '__main__':
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
                 logger.info(f'checkpoint {best_model_path} was loaded.')
                 set_lr(optimizer, lr)
+                last_lr = lr
 
             if lr < opt.TRAIN.MIN_LR * 1.01:
                 logger.info(f'lr={lr}, start cosine annealing!')
