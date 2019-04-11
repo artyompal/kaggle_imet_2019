@@ -1,9 +1,12 @@
 #!/usr/bin/python3.6
 
-import sys
+import os, sys
 from debug import dprint
 import numpy as np, pandas as pd
 from tqdm import tqdm
+
+IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
+INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else 'input/'
 
 if __name__ == '__main__':
     if len(sys.argv) < 4 or len(sys.argv) % 2 != 0:
@@ -17,7 +20,7 @@ if __name__ == '__main__':
     dprint(predicts)
     dprint(weights)
 
-    sub = pd.read_csv('input/sample_submission.csv')
+    sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
     result = np.zeros((sub.shape[0], 1103))
 
     for pred, w in zip(predicts, weights):
@@ -35,4 +38,3 @@ if __name__ == '__main__':
 
     sub['attribute_ids'] = labels
     sub.to_csv(result_name, index=False)
-

@@ -18,10 +18,10 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 
-from easydict import EasyDict as edict
 from sklearn.model_selection import KFold
 #import torchsummary
 #import pretrainedmodels
+import senet
 import PIL
 
 from data_loader_v1_single import Dataset
@@ -30,10 +30,15 @@ from debug import dprint, assert_eq, assert_ne
 from cosine_scheduler import CosineLRWithRestarts
 from tqdm import tqdm
 
+IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
+
+# if IN_KERNEL:
+#     from easydict_local import EasyDict as edict
+# else:
+from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
-opt.IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
-opt.INPUT = '../input/imet-2019-fgvc6/' if opt.IN_KERNEL else 'input/'
+opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else 'input/'
 
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'resnet50'
@@ -87,7 +92,7 @@ def make_folds(df: pd.DataFrame) -> pd.DataFrame:
     folds = [-1] * len(df)
 
     for item in tqdm(df.sample(frac=1, random_state=42).itertuples(),
-                          total=len(df), disable=opt.IN_KERNEL):
+                          total=len(df), disable=IN_KERNEL):
         cls = min(item.attribute_ids.split(), key=lambda cls: cls_counts[cls])
         fold_counts = [(f, fold_cls_counts[f, cls]) for f in range(opt.TRAIN.NUM_FOLDS)]
         min_count = min([count for _, count in fold_counts])
@@ -175,7 +180,7 @@ def create_model(predict_only: bool) -> Any:
     if opt.MODEL.ARCH in models.__dict__:
         model = models.__dict__[opt.MODEL.ARCH](pretrained=not predict_only)
     else:
-        model = pretrainedmodels.__dict__[opt.MODEL.ARCH](pretrained='imagenet')
+        model = senet.__dict__[opt.MODEL.ARCH](pretrained=None)
 
     assert(opt.MODEL.INPUT_SIZE % 32 == 0)
 
@@ -249,7 +254,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]
     predicts_list, targets_list = [], []
 
     with torch.no_grad():
-        for i, (input_, target) in enumerate(tqdm(data_loader, disable=opt.IN_KERNEL)):
+        for i, (input_, target) in enumerate(tqdm(data_loader, disable=IN_KERNEL)):
             if opt.TEST.NUM_TTAS != 1 and data_loader.dataset.mode == 'test':
                 bs, ncrops, c, h, w = input_.size()
                 input_ = input_.view(-1, c, h, w) # fuse batch size and ncrops
@@ -286,7 +291,7 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     predicts, targets = torch.tensor(predicts), torch.tensor(targets)
     best_score, best_thresh = 0.0, 0.0
 
-    for threshold in tqdm(np.linspace(0.05, 0.15, 33), disable=opt.IN_KERNEL):
+    for threshold in tqdm(np.linspace(0.05, 0.15, 33), disable=IN_KERNEL):
         score = F_score(predicts, targets, threshold=threshold)
 
         if score > best_score:
@@ -301,19 +306,8 @@ def generate_submission(val_loader: Any, test_loader: Any, model: Any,
     score, threshold = validate(val_loader, model, epoch)
     predicts, _ = inference(test_loader, model)
 
-    filename = f'submissions_{os.path.splitext(os.path.basename(model_path))[0]}'
+    filename = f'pred_level1_{os.path.splitext(os.path.basename(model_path))[0]}'
     np.savez(filename, predicts=predicts, threshold=threshold)
-
-    # dprint(predicts.shape)
-    # labels = [" ".join([str(i) for i, p in enumerate(pred) if p > threshold])
-    #           for pred in tqdm(predicts)]
-    # dprint(len(labels))
-    # dprint(np.array(labels))
-    #
-    # sub = test_loader.dataset.df
-    # sub['attribute_ids'] = labels
-    # sub_name = f'submissions_{os.path.basename(model_path)[:-4]}.csv'
-    # sub.to_csv(sub_name, index=False)
 
 def set_lr(optimizer: Any, lr: float) -> None:
     for param_group in optimizer.param_groups:
@@ -350,7 +344,7 @@ if __name__ == '__main__':
     np.random.seed(0)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrained", help="model to resume training", type=str)
+    parser.add_argument("--weights", help="model to resume training", type=str)
     parser.add_argument("--predict", help="model to resume training", action='store_true')
     parser.add_argument("--fold", help="fold number", type=int, default=0)
     args = parser.parse_args()

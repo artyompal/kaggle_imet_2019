@@ -2,6 +2,7 @@
 ''' Trains a model. '''
 
 import argparse, hashlib, logging, math, os, pprint, random, sys, time
+import multiprocessing
 from typing import *
 from collections import defaultdict, Counter
 
@@ -17,10 +18,10 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 
-from easydict import EasyDict as edict
 from sklearn.model_selection import KFold
-import torchsummary
-import pretrainedmodels
+#import torchsummary
+#import pretrainedmodels
+import senet
 import PIL
 
 from data_loader_v1_single import Dataset
@@ -29,8 +30,15 @@ from debug import dprint, assert_eq, assert_ne
 from cosine_scheduler import CosineLRWithRestarts
 from tqdm import tqdm
 
+IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
+
+# if IN_KERNEL:
+#     from easydict_local import EasyDict as edict
+# else:
+from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
+opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else 'input/'
 
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'se_resnext50_32x4d'
@@ -51,7 +59,7 @@ opt.TRAIN.NUM_FOLDS = 5
 opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
-opt.TRAIN.WORKERS = 12
+opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
 opt.TRAIN.PRINT_FREQ = 100
 opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
@@ -59,9 +67,9 @@ opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
 opt.TRAIN.EPOCHS = 1000
 opt.TRAIN.STEPS_PER_EPOCH = 30000
-opt.TRAIN.PATH = 'input/train'
-opt.TRAIN.FOLDS_FILE = 'output/folds.csv'
-opt.TRAIN.CSV = 'input/train.csv'
+opt.TRAIN.PATH = opt.INPUT + 'train'
+opt.TRAIN.FOLDS_FILE = 'folds.npy'
+opt.TRAIN.CSV = opt.INPUT + 'train.csv'
 opt.TRAIN.OPTIMIZER = 'Adam'
 opt.TRAIN.MIN_IMPROVEMENT = 0.001
 
@@ -72,8 +80,8 @@ opt.TRAIN.COSINE.PERIOD = 10
 opt.TRAIN.COSINE.COEFF = 1.2
 
 opt.TEST = edict()
-opt.TEST.PATH = f'input/test'
-opt.TEST.CSV = f'input/sample_submission.csv'
+opt.TEST.PATH = opt.INPUT + 'test'
+opt.TEST.CSV = opt.INPUT + 'sample_submission.csv'
 opt.TEST.NUM_TTAS = 4
 opt.TEST.TTA_COMBINE_FUNC = 'mean'
 
@@ -84,7 +92,7 @@ def make_folds(df: pd.DataFrame) -> pd.DataFrame:
     folds = [-1] * len(df)
 
     for item in tqdm(df.sample(frac=1, random_state=42).itertuples(),
-                          total=len(df)):
+                          total=len(df), disable=IN_KERNEL):
         cls = min(item.attribute_ids.split(), key=lambda cls: cls_counts[cls])
         fold_counts = [(f, fold_cls_counts[f, cls]) for f in range(opt.TRAIN.NUM_FOLDS)]
         min_count = min([count for _, count in fold_counts])
@@ -95,17 +103,17 @@ def make_folds(df: pd.DataFrame) -> pd.DataFrame:
         for cls in item.attribute_ids.split():
             fold_cls_counts[fold, cls] += 1
 
-    df['fold'] = folds
-    return df
+    return np.array(folds, dtype=np.uint8)
 
 def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if not os.path.exists(opt.TRAIN.FOLDS_FILE):
         folds = make_folds(df)
-        folds.to_csv(opt.TRAIN.FOLDS_FILE, index=False)
+        np.save(opt.TRAIN.FOLDS_FILE, folds)
     else:
-        folds = pd.read_csv(opt.TRAIN.FOLDS_FILE)
+        folds = np.load(opt.TRAIN.FOLDS_FILE)
 
-    return df.loc[folds.fold != fold], df.loc[folds.fold == fold]
+    assert folds.shape[0] == df.shape[0]
+    return df.loc[folds != fold], df.loc[folds == fold]
 
 def load_data(fold: int) -> Any:
     torch.multiprocessing.set_sharing_strategy('file_system')
@@ -164,15 +172,15 @@ def load_data(fold: int) -> Any:
 
     return train_loader, val_loader, test_loader
 
-def create_model() -> Any:
+def create_model(predict_only: bool) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
     logger.info("using model '{}'".format(opt.MODEL.ARCH ))
 
     if opt.MODEL.ARCH in models.__dict__:
-        model = models.__dict__[opt.MODEL.ARCH](pretrained=True)
+        model = models.__dict__[opt.MODEL.ARCH](pretrained=not predict_only)
     else:
-        model = pretrainedmodels.__dict__[opt.MODEL.ARCH](pretrained='imagenet')
+        model = senet.__dict__[opt.MODEL.ARCH](pretrained=None)
 
     assert(opt.MODEL.INPUT_SIZE % 32 == 0)
 
@@ -246,7 +254,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]
     predicts_list, targets_list = [], []
 
     with torch.no_grad():
-        for i, (input_, target) in enumerate(tqdm(data_loader)):
+        for i, (input_, target) in enumerate(tqdm(data_loader, disable=IN_KERNEL)):
             if opt.TEST.NUM_TTAS != 1 and data_loader.dataset.mode == 'test':
                 bs, ncrops, c, h, w = input_.size()
                 input_ = input_.view(-1, c, h, w) # fuse batch size and ncrops
@@ -283,7 +291,7 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     predicts, targets = torch.tensor(predicts), torch.tensor(targets)
     best_score, best_thresh = 0.0, 0.0
 
-    for threshold in tqdm(np.linspace(0.05, 0.15, 33)):
+    for threshold in tqdm(np.linspace(0.05, 0.15, 33), disable=IN_KERNEL):
         score = F_score(predicts, targets, threshold=threshold)
 
         if score > best_score:
@@ -298,19 +306,8 @@ def generate_submission(val_loader: Any, test_loader: Any, model: Any,
     score, threshold = validate(val_loader, model, epoch)
     predicts, _ = inference(test_loader, model)
 
-    filename = f'submissions_{os.path.splitext(os.path.basename(model_path))[0]}'
+    filename = f'pred_level1_{os.path.splitext(os.path.basename(model_path))[0]}'
     np.savez(filename, predicts=predicts, threshold=threshold)
-
-    # dprint(predicts.shape)
-    # labels = [" ".join([str(i) for i, p in enumerate(pred) if p > threshold])
-    #           for pred in tqdm(predicts)]
-    # dprint(len(labels))
-    # dprint(np.array(labels))
-    #
-    # sub = test_loader.dataset.df
-    # sub['attribute_ids'] = labels
-    # sub_name = f'submissions_{os.path.basename(model_path)[:-4]}.csv'
-    # sub.to_csv(sub_name, index=False)
 
 def set_lr(optimizer: Any, lr: float) -> None:
     for param_group in optimizer.param_groups:
@@ -347,7 +344,7 @@ if __name__ == '__main__':
     np.random.seed(0)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrained", help="model to resume training", type=str)
+    parser.add_argument("--weights", help="model to resume training", type=str)
     parser.add_argument("--predict", help="model to resume training", action='store_true')
     parser.add_argument("--fold", help="fold number", type=int, default=0)
     args = parser.parse_args()
@@ -361,9 +358,9 @@ if __name__ == '__main__':
     logger = create_logger(log_file)
     logger.info('=' * 50)
 
-    print("available models:", pretrainedmodels.model_names)
+    #print("available models:", pretrainedmodels.model_names)
     train_loader, val_loader, test_loader = load_data(args.fold)
-    model = create_model()
+    model = create_model(args.predict)
     # freeze_layers(model)
 
     # if torch.cuda.device_count() == 1:
@@ -388,15 +385,15 @@ if __name__ == '__main__':
                            verbose=True, min_lr=opt.TRAIN.MIN_LR,
                            threshold=opt.TRAIN.MIN_IMPROVEMENT, threshold_mode='abs')
 
-    if args.pretrained is None:
+    if args.weights is None:
         last_epoch = 0
         logger.info(f'training will start from epoch {last_epoch+1}')
     else:
-        last_checkpoint = torch.load(args.pretrained)
+        last_checkpoint = torch.load(args.weights)
         assert(last_checkpoint['arch']==opt.MODEL.ARCH)
         model.load_state_dict(last_checkpoint['state_dict'])
         optimizer.load_state_dict(last_checkpoint['optimizer'])
-        logger.info(f'checkpoint {args.pretrained} was loaded.')
+        logger.info(f'checkpoint {args.weights} was loaded.')
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_checkpoint["epoch"]}')
@@ -405,7 +402,7 @@ if __name__ == '__main__':
 
     if args.predict:
         print('inference mode')
-        generate_submission(val_loader, test_loader, model, last_epoch, args.pretrained)
+        generate_submission(val_loader, test_loader, model, last_epoch, args.weights)
         sys.exit(0)
 
     if opt.TRAIN.LOSS == 'BCE':
