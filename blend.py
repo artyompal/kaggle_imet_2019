@@ -32,7 +32,7 @@ if __name__ == '__main__':
     dprint(result.shape)
     dprint(result)
     labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
-              for pred in tqdm(result)]
+              for pred in tqdm(result, disable=IN_KERNEL)]
     dprint(len(labels))
     dprint(np.array(labels))
 
