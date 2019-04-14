@@ -559,7 +559,7 @@ if __name__ == '__main__':
     '''
 
     hyperopt_space = {
-        'hflip':                hp.choice('hflip', [0, 1]),
+        # 'hflip':                hp.choice('hflip', [0, 1]),
         'vflip':                hp.choice('vflip', [0, 1]),
         'rotate90':             hp.choice('rotate90', [0, 1]),
         'affine':               hp.choice('affine', ['none', 'soft', 'medium', 'hard']),

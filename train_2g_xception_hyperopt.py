@@ -31,7 +31,7 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchsummary
-    import pytorchcv
+    from pytorchcv.model_provider import get_model
     import albumentations as albu
     from hyperopt import hp, tpe, fmin
 else:
@@ -45,7 +45,7 @@ opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'xception'
 # opt.MODEL.IMAGE_SIZE = 256
-opt.MODEL.INPUT_SIZE = 288 # crop size
+opt.MODEL.INPUT_SIZE = 299 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
 opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
@@ -220,21 +220,20 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 def create_model(predict_only: bool, dropout: float) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    model = pytorchcv.get_model(opt.MODEL.ARCH, pretrained=not predict_only)
-    assert(opt.MODEL.INPUT_SIZE % 32 == 0)
+    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
     if opt.MODEL.ARCH.startswith('resnet'):
         model.avgpool = nn.AdaptiveAvgPool2d(1)
         model.fc = nn.Linear(model.fc.in_features, opt.MODEL.NUM_CLASSES)
     else:
-        model.avg_pool = nn.AdaptiveAvgPool2d(1)
+#         model.avg_pool = nn.AdaptiveAvgPool2d(1)
 
         if dropout < 0.1:
-            model.last_linear = nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES)
+            model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
         else:
-            model.last_linear = nn.Sequential(
+            model.output = nn.Sequential(
                  nn.Dropout(dropout),
-                 nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES))
+                 nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
 
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
@@ -551,7 +550,7 @@ if __name__ == '__main__':
     '''
 
     hyperopt_space = {
-        'hflip':                hp.choice('hflip', [0, 1]),
+        # 'hflip':                hp.choice('hflip', [0, 1]),
         'vflip':                hp.choice('vflip', [0, 1]),
         'rotate90':             hp.choice('rotate90', [0, 1]),
         'affine':               hp.choice('affine', ['none', 'soft', 'medium', 'hard']),
