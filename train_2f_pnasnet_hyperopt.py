@@ -401,6 +401,7 @@ def train_model(params: Dict[str, str]) -> float:
 
     global logger
     log_file = os.path.join(model_dir, f'log_training.txt')
+    logger.handlers = []
     logger = create_logger(log_file)
 
     logger.info('=' * 50)
