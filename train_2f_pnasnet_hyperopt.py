@@ -404,7 +404,7 @@ def train_model(params: Dict[str, str]) -> float:
         os.makedirs(model_dir)
 
     train_loader, val_loader, test_loader = load_data(args.fold, params)
-    model = create_model(args.predict, float(params['dropout']))
+    model = create_model(args.predict, dropout=0.5) # float(params['dropout']))
     # freeze_layers(model)
 
     # if torch.cuda.device_count() == 1:
@@ -561,7 +561,7 @@ if __name__ == '__main__':
         'distortion':           hp.uniform('distortion', 0, 0.33),
         'color':                hp.uniform('color', 0, 0.33),
         'aug_global_prob':      hp.uniform('aug_global_prob', 0.3, 0.7),
-        'dropout':              hp.choice('dropout', [0, 0.3, 0.5]  )
+        # 'dropout':              hp.choice('dropout', [0, 0.3, 0.5]  )
     }
 
     best = fmin(fn=train_model, space=hyperopt_space,
