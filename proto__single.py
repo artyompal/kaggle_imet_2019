@@ -11,18 +11,8 @@ def run(command):
     if res != 0:
         sys.exit()
 
-coeff = 5
 models = {
-    '2a_resnet50_f0_e17_0.5846.pth': 1,
-    '2a_resnet50_f1_e16_0.5688.pth': 1,
-    '2a_resnet50_f2_e34_0.5651.pth': 1,
-    '2a_resnet50_f3_e11_0.5645.pth': 1,
-    '2a_resnet50_f4_e14_0.5669.pth': 1,
-    '2b_se_resnext50_f0_e09_0.5972.pth': coeff,
-    '2b_se_resnext50_f1_e19_0.6006.pth': coeff,
-    '2b_se_resnext50_f2_e20_0.5973.pth': coeff,
-    '2b_se_resnext50_f3_e21_0.5982.pth': coeff,
-    '2b_se_resnext50_f4_e21_0.5978.pth': coeff
+    '2a_resnet50_f0_e17_0.5846.pth': 1
 }
 
 for model in models.keys():

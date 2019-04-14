@@ -6,8 +6,8 @@ import numpy as np
 import torch
 
 
-def create_logger(filename: str) -> Any:
-    logger_name = 'logger'
+def create_logger(filename: str, onscreen: bool = True) -> Any:
+    logger_name = os.path.basename(filename)
     file_fmt_str = '%(asctime)s %(message)s'
     console_fmt_str = '%(message)s'
     file_level = logging.DEBUG
@@ -23,11 +23,12 @@ def create_logger(filename: str) -> Any:
     log_file.setFormatter(file_fmt)
     logger.addHandler(log_file)
 
-    console_fmt = logging.Formatter(console_fmt_str)
-    log_console = logging.StreamHandler()
-    log_console.setLevel(logging.DEBUG)
-    log_console.setFormatter(console_fmt)
-    logger.addHandler(log_console)
+    if onscreen:
+        console_fmt = logging.Formatter(console_fmt_str)
+        log_console = logging.StreamHandler()
+        log_console.setLevel(logging.DEBUG)
+        log_console.setFormatter(console_fmt)
+        logger.addHandler(log_console)
 
     return logger
 

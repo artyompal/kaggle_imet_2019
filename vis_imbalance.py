@@ -6,10 +6,10 @@ from collections import Counter
 from debug import dprint
 
 
-df = pd.read_csv('input/train.csv')
+df = pd.read_csv('../input/train.csv')
 cls_counts = Counter(cls for classes in df['attribute_ids'].str.split() for cls in classes)
 
-labels = pd.read_csv('input/labels.csv')
+labels = pd.read_csv('../input/labels.csv')
 labels = labels.to_dict()['attribute_name']
 counts = {labels[int(id)]:count for (id, count) in cls_counts.items()}
 # dprint(counts)

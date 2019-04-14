@@ -19,8 +19,6 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 
 from sklearn.model_selection import KFold
-#import torchsummary
-#import pretrainedmodels
 import senet
 import PIL
 
@@ -32,13 +30,16 @@ from tqdm import tqdm
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
-# if IN_KERNEL:
-#     from easydict_local import EasyDict as edict
-# else:
+if not IN_KERNEL:
+    import torchsummary
+    import pretrainedmodels
+    import albumentations
+    import pytorchcv
+
 from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
-opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else 'input/'
+opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'se_resnext50_32x4d'
@@ -49,10 +50,8 @@ opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
 opt.MODEL.POOL_SIZE = 1 # 7
 
-opt.MODELS_DIR = 'models'
-
 opt.EXPERIMENT = edict()
-opt.EXPERIMENT.DIR = f'models/{opt.MODEL.VERSION}'
+opt.EXPERIMENT.DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
