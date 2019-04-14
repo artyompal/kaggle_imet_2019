@@ -31,9 +31,8 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchsummary
-    import pretrainedmodels
+    from pytorchcv.model_provider import get_model
     import albumentations as albu
-    import pytorchcv
     from hyperopt import hp, tpe, fmin
 else:
     import senet
@@ -44,7 +43,7 @@ opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'se_resnext50_32x4d'
+opt.MODEL.ARCH = 'seresnext50_32x4d'
 # opt.MODEL.IMAGE_SIZE = 256
 opt.MODEL.INPUT_SIZE = 288 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
@@ -64,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 8
+opt.TRAIN.EPOCHS = 1
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -221,25 +220,24 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 def create_model(predict_only: bool, dropout: float) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    if opt.MODEL.ARCH in models.__dict__:
-        model = models.__dict__[opt.MODEL.ARCH](pretrained=not predict_only)
-    else:
-        model = pretrainedmodels.__dict__[opt.MODEL.ARCH](pretrained=(None if predict_only else 'imagenet'))
+    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
-    assert(opt.MODEL.INPUT_SIZE % 32 == 0)
+    model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
-    if opt.MODEL.ARCH.startswith('resnet'):
-        model.avgpool = nn.AdaptiveAvgPool2d(1)
-        model.fc = nn.Linear(model.fc.in_features, opt.MODEL.NUM_CLASSES)
-    else:
-        model.avg_pool = nn.AdaptiveAvgPool2d(1)
-
+    if opt.MODEL.ARCH == 'pnasnet5large':
         if dropout < 0.1:
-            model.last_linear = nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES)
+            model.output = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
         else:
-            model.last_linear = nn.Sequential(
+            model.output = nn.Sequential(
                  nn.Dropout(dropout),
-                 nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES))
+                 nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
+    else:
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
 
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
@@ -272,7 +270,7 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
 
         # get metric
         predict = (output.detach() > 0.5).type(torch.FloatTensor)
-        avg_score.update(F_score(predict, target))
+        avg_score.update(F_score(predict, target).item())
 
         # compute gradient and do SGD step
         losses.update(loss.data.item(), input_.size(0))
@@ -341,8 +339,7 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     best_score, best_thresh = 0.0, 0.0
 
     for threshold in tqdm(np.linspace(0.05, 0.15, 33), disable=IN_KERNEL):
-        score = F_score(predicts, targets, threshold=threshold)
-
+        score = F_score(predicts, targets, threshold=threshold).item()
         if score > best_score:
             best_score, best_thresh = score, threshold
 
@@ -395,15 +392,20 @@ def train_model(params: Dict[str, str]) -> float:
     hash = hashlib.sha224(str(params).encode()).hexdigest()[:8]
     model_dir = os.path.join(opt.EXPERIMENT_DIR, f'{hash}')
 
-    str_params = str(params)
-    logger.info('=' * 50)
-    logger.info(f'hyperparameters: {str_params}')
-    hyperopt_logger.info('=' * 50)
-    hyperopt_logger.info(f'model_dir: {model_dir}')
-    hyperopt_logger.info(f'hyperparameters: {str_params}')
-
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
+
+    str_params = str(params)
+    hyperopt_logger.info('=' * 50)
+    hyperopt_logger.info(f'hyperparameters: {str_params}')
+
+    global logger
+    log_file = os.path.join(model_dir, f'log_training.txt')
+    logger = create_logger(log_file)
+
+    logger.info('=' * 50)
+    logger.info(f'model_dir: {model_dir}')
+    logger.info(f'hyperparameters: {str_params}')
 
     train_loader, val_loader, test_loader = load_data(args.fold, params)
     model = create_model(args.predict, float(params['dropout']))
@@ -522,9 +524,6 @@ def train_model(params: Dict[str, str]) -> float:
     return -best_score
 
 if __name__ == '__main__':
-    if not IN_KERNEL:
-        print('available models:', pretrainedmodels.model_names)
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', help='model to resume training', type=str)
     parser.add_argument('--fold', help='fold number', type=int, default=0)
@@ -536,14 +535,11 @@ if __name__ == '__main__':
     if not os.path.exists(opt.EXPERIMENT_DIR):
         os.makedirs(opt.EXPERIMENT_DIR)
 
-    hyperopt_log_file = os.path.join(opt.EXPERIMENT_DIR, f'log_hyperopt.txt')
+    hyperopt_log_file = os.path.join(opt.EXPERIMENT_DIR, 'log_hyperopt.txt')
     hyperopt_logger = create_logger(hyperopt_log_file, onscreen=False)
-
-    log_file = os.path.join(opt.EXPERIMENT_DIR, f'log_training.txt')
-    logger = create_logger(log_file)
+    logger = create_logger(filename=None)
 
     '''
-    if int(params['hflip']):
     if int(params['vflip']):
     if int(params['rotate90']):
     if params['affine'] == 'soft':
@@ -559,7 +555,6 @@ if __name__ == '__main__':
     '''
 
     hyperopt_space = {
-        # 'hflip':                hp.choice('hflip', [0, 1]),
         'vflip':                hp.choice('vflip', [0, 1]),
         'rotate90':             hp.choice('rotate90', [0, 1]),
         'affine':               hp.choice('affine', ['none', 'soft', 'medium', 'hard']),
@@ -567,7 +562,7 @@ if __name__ == '__main__':
         'blur':                 hp.uniform('blue', 0, 0.33),
         'distortion':           hp.uniform('distortion', 0, 0.33),
         'color':                hp.uniform('color', 0, 0.33),
-        'aug_global_prob':      hp.uniform('aug_global_prob', 0.3, 0.7),
+        'aug_global_prob':      hp.uniform('aug_global_prob', 0.5, 1.0),
         'dropout':              hp.choice('dropout', [0, 0.3, 0.5]  )
     }
 

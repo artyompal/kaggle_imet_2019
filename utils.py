@@ -1,13 +1,13 @@
 import logging, os
 import inspect, re
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import torch
 
 
-def create_logger(filename: str, onscreen: bool = True) -> Any:
-    logger_name = os.path.basename(filename)
+def create_logger(filename: Optional[str], onscreen: bool = True) -> Any:
+    logger_name = os.path.basename(filename) if filename is not None else 'log'
     file_fmt_str = '%(asctime)s %(message)s'
     console_fmt_str = '%(message)s'
     file_level = logging.DEBUG
@@ -17,11 +17,12 @@ def create_logger(filename: str, onscreen: bool = True) -> Any:
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
-    file_fmt = logging.Formatter(file_fmt_str, '%m-%d %H:%M:%S')
-    log_file = logging.FileHandler(filename)
-    log_file.setLevel(file_level)
-    log_file.setFormatter(file_fmt)
-    logger.addHandler(log_file)
+    if filename is not None:
+        file_fmt = logging.Formatter(file_fmt_str, '%m-%d %H:%M:%S')
+        log_file = logging.FileHandler(filename)
+        log_file.setLevel(file_level)
+        log_file.setFormatter(file_fmt)
+        logger.addHandler(log_file)
 
     if onscreen:
         console_fmt = logging.Formatter(console_fmt_str)
@@ -50,7 +51,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def F_score(predict: np.array, label: np.array, threshold:float=0.5, beta:int=2) -> float:
+def F_score(predict: np.array, label: np.array, threshold:float=0.5, beta:int=2) -> torch.tensor:
     predict = predict > threshold
     label = label > threshold
 

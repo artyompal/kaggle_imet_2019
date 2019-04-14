@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 8
+opt.TRAIN.EPOCHS = 1
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -224,12 +224,20 @@ def create_model(predict_only: bool, dropout: float) -> Any:
 
     model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
-    if dropout < 0.1:
-        model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
+    if opt.MODEL.ARCH == 'pnasnet5large':
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
     else:
-        model.output = nn.Sequential(
-             nn.Dropout(dropout),
-             nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
 
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
@@ -262,7 +270,7 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
 
         # get metric
         predict = (output.detach() > 0.5).type(torch.FloatTensor)
-        avg_score.update(F_score(predict, target))
+        avg_score.update(F_score(predict, target).item())
 
         # compute gradient and do SGD step
         losses.update(loss.data.item(), input_.size(0))
@@ -331,8 +339,7 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
     best_score, best_thresh = 0.0, 0.0
 
     for threshold in tqdm(np.linspace(0.05, 0.15, 33), disable=IN_KERNEL):
-        score = F_score(predicts, targets, threshold=threshold)
-
+        score = F_score(predicts, targets, threshold=threshold).item()
         if score > best_score:
             best_score, best_thresh = score, threshold
 
@@ -385,15 +392,20 @@ def train_model(params: Dict[str, str]) -> float:
     hash = hashlib.sha224(str(params).encode()).hexdigest()[:8]
     model_dir = os.path.join(opt.EXPERIMENT_DIR, f'{hash}')
 
-    str_params = str(params)
-    logger.info('=' * 50)
-    logger.info(f'hyperparameters: {str_params}')
-    hyperopt_logger.info('=' * 50)
-    hyperopt_logger.info(f'model_dir: {model_dir}')
-    hyperopt_logger.info(f'hyperparameters: {str_params}')
-
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
+
+    str_params = str(params)
+    hyperopt_logger.info('=' * 50)
+    hyperopt_logger.info(f'hyperparameters: {str_params}')
+
+    global logger
+    log_file = os.path.join(model_dir, f'log_training.txt')
+    logger = create_logger(log_file)
+
+    logger.info('=' * 50)
+    logger.info(f'model_dir: {model_dir}')
+    logger.info(f'hyperparameters: {str_params}')
 
     train_loader, val_loader, test_loader = load_data(args.fold, params)
     model = create_model(args.predict, float(params['dropout']))
@@ -523,11 +535,9 @@ if __name__ == '__main__':
     if not os.path.exists(opt.EXPERIMENT_DIR):
         os.makedirs(opt.EXPERIMENT_DIR)
 
-    hyperopt_log_file = os.path.join(opt.EXPERIMENT_DIR, f'log_hyperopt.txt')
+    hyperopt_log_file = os.path.join(opt.EXPERIMENT_DIR, 'log_hyperopt.txt')
     hyperopt_logger = create_logger(hyperopt_log_file, onscreen=False)
-
-    log_file = os.path.join(opt.EXPERIMENT_DIR, f'log_training.txt')
-    logger = create_logger(log_file)
+    logger = create_logger(filename=None)
 
     '''
     if int(params['vflip']):
@@ -552,7 +562,7 @@ if __name__ == '__main__':
         'blur':                 hp.uniform('blue', 0, 0.33),
         'distortion':           hp.uniform('distortion', 0, 0.33),
         'color':                hp.uniform('color', 0, 0.33),
-        'aug_global_prob':      hp.uniform('aug_global_prob', 0.3, 0.7),
+        'aug_global_prob':      hp.uniform('aug_global_prob', 0.5, 1.0),
         'dropout':              hp.choice('dropout', [0, 0.3, 0.5]  )
     }
 
