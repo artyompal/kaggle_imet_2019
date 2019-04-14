@@ -31,7 +31,7 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchsummary
-    import pytorchcv
+    from pytorchcv.model_provider import get_model
     import albumentations as albu
     from hyperopt import hp, tpe, fmin
 else:
@@ -54,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 8 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 12
+opt.TRAIN.EPOCHS = 6
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -220,21 +220,24 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 def create_model(predict_only: bool, dropout: float) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    model = pytorchcv.get_model(opt.MODEL.ARCH, pretrained=not predict_only)
-    assert(opt.MODEL.INPUT_SIZE % 32 == 0)
+    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
-    if opt.MODEL.ARCH.startswith('resnet'):
-        model.avgpool = nn.AdaptiveAvgPool2d(1)
-        model.fc = nn.Linear(model.fc.in_features, opt.MODEL.NUM_CLASSES)
-    else:
-        model.avg_pool = nn.AdaptiveAvgPool2d(1)
+    model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
+    if opt.MODEL.ARCH == 'pnasnet5large':
         if dropout < 0.1:
-            model.last_linear = nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES)
+            model.output = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
         else:
-            model.last_linear = nn.Sequential(
+            model.output = nn.Sequential(
                  nn.Dropout(dropout),
-                 nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES))
+                 nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
+    else:
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
 
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
@@ -535,7 +538,6 @@ if __name__ == '__main__':
     logger = create_logger(log_file)
 
     '''
-    if int(params['hflip']):
     if int(params['vflip']):
     if int(params['rotate90']):
     if params['affine'] == 'soft':
@@ -551,7 +553,6 @@ if __name__ == '__main__':
     '''
 
     hyperopt_space = {
-        'hflip':                hp.choice('hflip', [0, 1]),
         'vflip':                hp.choice('vflip', [0, 1]),
         'rotate90':             hp.choice('rotate90', [0, 1]),
         'affine':               hp.choice('affine', ['none', 'soft', 'medium', 'hard']),
