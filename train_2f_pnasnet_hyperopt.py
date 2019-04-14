@@ -180,7 +180,7 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 
     transform_train = albu.Compose([
         albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
-        albu.Compose(augs, p=float(params['aug_global_prob']))
+        albu.Compose(augs)
         ])
 
     transform_test = albu.Compose([
@@ -550,8 +550,6 @@ if __name__ == '__main__':
     if float(params['blur']) > 0.1:
     if float(params['distortion']) > 0.1:
     if float(params['color']) > 0.1:
-
-        ], p=str(params['aug_global_prob']))
     '''
 
     hyperopt_space = {
@@ -562,7 +560,6 @@ if __name__ == '__main__':
         'blur':                 hp.uniform('blue', 0, 0.33),
         'distortion':           hp.uniform('distortion', 0, 0.33),
         'color':                hp.uniform('color', 0, 0.33),
-        'aug_global_prob':      hp.uniform('aug_global_prob', 0.5, 1.0),
         # 'dropout':              hp.choice('dropout', [0, 0.3, 0.5]  )
     }
 
