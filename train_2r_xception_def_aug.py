@@ -177,7 +177,8 @@ def create_model(predict_only: bool, dropout: float) -> Any:
 
     model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
-    model.features[-1] = nn.AdaptiveAvgPool2d(1)
+    if 'ception' not in opt.MODEL.ARCH:
+        model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
     if opt.MODEL.ARCH == 'pnasnet5large':
         if dropout < 0.1:
