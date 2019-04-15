@@ -18,7 +18,7 @@ VERSION = os.path.basename(__file__)[12:-3]
 class Dataset(data.Dataset):
     def __init__(self, dataframe: pd.DataFrame, path: str, mode: str, num_classes: int,
                  image_size: int = 0, oversample: int = 1, augmentor: Any = None,
-                 resize: bool = True, num_tta: int = 1) -> None:
+                 resize: bool = True, num_tta: int = 1, inception: bool = False) -> None:
         print(f'creating data loader {VERSION} in mode={mode}')
         assert mode in ['train', 'val', 'test']
         assert mode != 'train' or num_tta == 1
@@ -32,11 +32,19 @@ class Dataset(data.Dataset):
         self.resize = resize
         self.num_tta = num_tta
 
-        self.transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                  std=[0.229, 0.224, 0.225]),
-        ])
+
+        if not inception:
+            self.transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                      std=[0.229, 0.224, 0.225]),
+            ])
+        else:
+            self.transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                      std=[0.5, 0.5, 0.5])
+            ])
 
     def _transform_image(self, image: Image, index: int) -> torch.tensor:
         if self.augmentor is not None:
