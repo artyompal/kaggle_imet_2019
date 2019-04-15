@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 12
+opt.TRAIN.EPOCHS = 1
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -222,9 +222,15 @@ def create_model(predict_only: bool, dropout: float) -> Any:
 
     model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
-    if opt.MODEL.ARCH.startswith('resnet'):
-        model.avgpool = nn.AdaptiveAvgPool2d(1)
-        model.fc = nn.Linear(model.fc.in_features, opt.MODEL.NUM_CLASSES)
+    model.features[-1] = nn.AdaptiveAvgPool2d(1)
+
+    if opt.MODEL.ARCH == 'pnasnet5large':
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
     else:
         if dropout < 0.1:
             model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
@@ -395,6 +401,7 @@ def train_model(params: Dict[str, str]) -> float:
 
     global logger
     log_file = os.path.join(model_dir, f'log_training.txt')
+    logger.handlers = []
     logger = create_logger(log_file)
 
     logger.info('=' * 50)
@@ -544,8 +551,6 @@ if __name__ == '__main__':
     if float(params['blur']) > 0.1:
     if float(params['distortion']) > 0.1:
     if float(params['color']) > 0.1:
-
-        ], p=str(params['aug_global_prob']))
     '''
 
     hyperopt_space = {
