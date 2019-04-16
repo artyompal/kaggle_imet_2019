@@ -2,11 +2,12 @@
 
 import itertools, os, re, sys
 from debug import dprint
+from typing import List
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 MODEL_PATH = '../input/seresnext50-resnet50/' if IN_KERNEL else ''
 
-def run(command):
+def run(command: List[str]) -> None:
     res = os.system('export PYTHONPATH=${PYTHONPATH}:/kaggle/working && ' + ' '.join(command))
     if res != 0:
         sys.exit()
@@ -26,13 +27,16 @@ models = {
 }
 
 for model in models.keys():
-    m = re.match(r'(.*)_f\d_e\d+.*\.pth', os.path.basename(model))
-    if m:
-        script_name = f'train_{m.group(1)}.py'
+    m = re.match(r'(.*)_f(\d)_e\d+.*\.pth', os.path.basename(model))
+    assert m
 
-    cmd = ['python3.6', script_name, '--predict', '--weights', MODEL_PATH + model]
+    script_name = f'train_{m.group(1)}.py'
+    fold = m.group(2)
+
+    cmd = ['python3.6', script_name, '--predict', '--weights', MODEL_PATH + model,
+           '--fold', fold]
     print('running', cmd)
-    res = run(cmd)
+    run(cmd)
 
 cmd = ['python3.6', 'blend.py', 'submission.csv']
 
