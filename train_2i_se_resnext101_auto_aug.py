@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 100
+opt.TRAIN.EPOCHS = 30
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -466,13 +466,16 @@ def train_model(params: Dict[str, Any]) -> float:
                 last_lr = lr
 
             if lr < opt.TRAIN.MIN_LR * 1.01:
-                logger.info(f'lr={lr}, start cosine annealing!')
-                set_lr(optimizer, opt.TRAIN.COSINE.LR)
-                opt.TRAIN.COSINE.ENABLE = True
+                logger.info('reached minimum LR, stopping')
+                break
 
-                lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
-                    opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
-                    restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
+                # logger.info(f'lr={lr}, start cosine annealing!')
+                # set_lr(optimizer, opt.TRAIN.COSINE.LR)
+                # opt.TRAIN.COSINE.ENABLE = True
+                #
+                # lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
+                #     opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
+                #     restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
 
         if opt.TRAIN.COSINE.ENABLE:
             lr_scheduler.step()
