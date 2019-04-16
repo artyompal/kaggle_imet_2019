@@ -12,7 +12,7 @@ def run(command: List[str]) -> None:
     if res != 0:
         sys.exit()
 
-coeff = 5
+coeff = 4
 models = {
     '2a_resnet50_f0_e17_0.5846.pth': 1,
     '2a_resnet50_f1_e16_0.5688.pth': 1,
