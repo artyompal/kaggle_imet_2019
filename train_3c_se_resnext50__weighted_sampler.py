@@ -440,14 +440,17 @@ def train_model(params: Dict[str, Any]) -> float:
                 logger.info(f'checkpoint {best_model_path} was loaded.')
                 last_lr = read_lr(optimizer)
 
-            # if lr < opt.TRAIN.MIN_LR * 1.01:
-            #     logger.info(f'lr={lr}, start cosine annealing!')
-            #     set_lr(optimizer, opt.TRAIN.COSINE.LR)
-            #     opt.TRAIN.COSINE.ENABLE = True
-            #
-            #     lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
-            #         opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
-            #         restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
+            if lr < opt.TRAIN.MIN_LR * 1.01:
+                logger.info('reached minimum LR, stopping')
+                break
+
+                # logger.info(f'lr={lr}, start cosine annealing!')
+                # set_lr(optimizer, opt.TRAIN.COSINE.LR)
+                # opt.TRAIN.COSINE.ENABLE = True
+                #
+                # lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
+                #     opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
+                #     restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
 
         if opt.TRAIN.COSINE.ENABLE:
             lr_scheduler.step()
