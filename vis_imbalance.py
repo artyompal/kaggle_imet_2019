@@ -17,11 +17,13 @@ counts = {labels[int(id)]:count for (id, count) in cls_counts.items()}
 # plt.plot(sorted(counts.values()))
 # plt.show()
 
-dprint(len([cnt for id,cnt in counts.items() if cnt < 100]))
-dprint(len([cnt for id,cnt in counts.items() if cnt < 20]))
-dprint(len([cnt for id,cnt in counts.items() if cnt < 10]))
-dprint(len([cnt for id,cnt in counts.items() if cnt < 5]))
-dprint(len([cnt for id,cnt in counts.items() if cnt < 3]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 100]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 50]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 30]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 20]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 10]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 5]))
+dprint(len([cnt for id,cnt in counts.items() if cnt <= 3]))
 
 # plt.plot(sorted([cnt for id,cnt in counts.items() if cnt < 100])); plt.show()
 
