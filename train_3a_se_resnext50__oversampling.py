@@ -408,7 +408,6 @@ def train_model(params: Dict[str, Any]) -> float:
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_epoch}')
-        set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.predict:
@@ -439,17 +438,16 @@ def train_model(params: Dict[str, Any]) -> float:
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
                 logger.info(f'checkpoint {best_model_path} was loaded.')
-                set_lr(optimizer, lr)
-                last_lr = lr
+                last_lr = read_lr(optimizer)
 
-            if lr < opt.TRAIN.MIN_LR * 1.01:
-                logger.info(f'lr={lr}, start cosine annealing!')
-                set_lr(optimizer, opt.TRAIN.COSINE.LR)
-                opt.TRAIN.COSINE.ENABLE = True
-
-                lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
-                    opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
-                    restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
+            # if lr < opt.TRAIN.MIN_LR * 1.01:
+            #     logger.info(f'lr={lr}, start cosine annealing!')
+            #     set_lr(optimizer, opt.TRAIN.COSINE.LR)
+            #     opt.TRAIN.COSINE.ENABLE = True
+            #
+            #     lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
+            #         opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
+            #         restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
 
         if opt.TRAIN.COSINE.ENABLE:
             lr_scheduler.step()

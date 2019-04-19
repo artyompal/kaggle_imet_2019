@@ -19,7 +19,6 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 
 from sklearn.model_selection import KFold
-from sklearn.utils.class_weight import compute_class_weight
 import PIL
 
 from data_loader_v1_single import Dataset
@@ -103,25 +102,27 @@ def make_folds(df: pd.DataFrame) -> pd.DataFrame:
 
     return np.array(folds, dtype=np.uint8)
 
-def calculate_sample_weights(train: pd.DataFrame) -> pd.DataFrame:
+def duplicate_train(train: pd.DataFrame) -> pd.DataFrame:
     print('calculating freqs')
-    cls_counts = Counter(cls for classes in train['attribute_ids'].str.split() for cls in classes)
-    least_freq_classes = np.zeros(len(train), dtype=int)
+    cls_counts = Counter(c for classes in train['attribute_ids'].str.split() for c in classes)
+    freqs = np.zeros(len(train))
 
     for i, item in enumerate(tqdm(train.itertuples(), total=len(train), disable=IN_KERNEL)):
-        least_freq_classes[i] = min(item.attribute_ids.split(), key=lambda c: cls_counts[c])
+        least_frequent_cls = min(item.attribute_ids.split(), key=lambda c: cls_counts[c])
+        freqs[i] = cls_counts[least_frequent_cls]
 
-    print('least_freq_classes', list(least_freq_classes[:100]))
-    # print('least_freq_classes', list(least_freq_classes))
-    assert all(least_freq_classes < opt.MODEL.NUM_CLASSES)
-    assert all(least_freq_classes >= 0)
+    print('frequencies', list(freqs[:100]))
 
-    # sample_weights = compute_class_weight('balanced', range(opt.MODEL.NUM_CLASSES),
-    sample_weights = compute_class_weight('balanced', np.unique(least_freq_classes),
-                                          least_freq_classes)
-    dprint(sample_weights.shape)
-    dprint(sample_weights)
-    return sample_weights
+    print('duplicating rare items')
+    print('train_df before duplicating:', train.shape)
+    dupes = [train]
+
+    for threshold in [3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 10, 10, 10, 15, 15, 15, 20, 20]:
+        dupes.append(train.iloc[freqs < threshold])
+
+    train = pd.concat(dupes)
+    print('train_df after duplicating:', train.shape)
+    return train
 
 def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if not os.path.exists(opt.TRAIN.FOLDS_FILE):
@@ -131,7 +132,11 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
         folds = np.load(opt.TRAIN.FOLDS_FILE)
 
     assert folds.shape[0] == df.shape[0]
-    return df.loc[folds != fold], df.loc[folds == fold]
+    train, val =  df.loc[folds != fold], df.loc[folds == fold]
+
+    train = duplicate_train(train)
+
+    return train, val
 
 def load_data(fold: int, params: Dict[str, Any]) -> Any:
     torch.multiprocessing.set_sharing_strategy('file_system')
@@ -144,10 +149,6 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
     print('full_df', full_df.shape)
     train_df, val_df = train_val_split(full_df, fold)
     print('train_df', train_df.shape, 'val_df', val_df.shape)
-
-    calculate_sample_weights(train_df)
-    sys.exit()
-
     test_df = pd.read_csv(opt.TEST.CSV)
 
     transform_train = transforms.Compose([

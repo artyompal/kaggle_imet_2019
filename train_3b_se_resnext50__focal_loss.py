@@ -339,20 +339,20 @@ def unfreeze_layers(model: Any) -> None:
             param.requires_grad = True
 
 def focal_loss(pred: np.ndarray, target: np.ndarray) -> float:
-  gamma = 2
+    gamma = 2
 
-  # Inspired by the implementation of binary_cross_entropy_with_logits
-  if target.size() != pred.size():
-      raise ValueError(f'target size {target.size} must be the as input size {pred.size()}')
+    # Inspired by the implementation of binary_cross_entropy_with_logits
+    if target.size() != pred.size():
+        raise ValueError(f'target size {target.size} must be the as input size {pred.size()}')
 
-  max_val = (-pred).clamp(min=0)
-  loss = pred - pred * target + max_val + ((-max_val).exp() + (-pred - max_val).exp()).log()
+    max_val = (-pred).clamp(min=0)
+    loss = pred - pred * target + max_val + ((-max_val).exp() + (-pred - max_val).exp()).log()
 
-  # This formula gives us the log sigmoid of 1-p if y is 0 and of p if y is 1
-  invprobs = F.logsigmoid(-pred * (target * 2 - 1))
-  loss = (invprobs * gamma).exp() * loss
+    # This formula gives us the log sigmoid of 1-p if y is 0 and of p if y is 1
+    invprobs = F.logsigmoid(-pred * (target * 2 - 1))
+    loss = (invprobs * gamma).exp() * loss
 
-  return loss.mean()
+    return loss.mean()
 
 
 if __name__ == '__main__':
@@ -412,7 +412,6 @@ if __name__ == '__main__':
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_checkpoint["epoch"]}')
-        set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.predict:
@@ -445,17 +444,16 @@ if __name__ == '__main__':
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
                 logger.info(f'checkpoint {best_model_path} was loaded.')
-                set_lr(optimizer, lr)
-                last_lr = lr
+                last_lr = read_lr(optimizer)
 
-            if lr < opt.TRAIN.MIN_LR * 1.01:
-                logger.info(f'lr={lr}, start cosine annealing!')
-                set_lr(optimizer, opt.TRAIN.COSINE.LR)
-                opt.TRAIN.COSINE.ENABLE = True
-
-                lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
-                    opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
-                    restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
+            # if lr < opt.TRAIN.MIN_LR * 1.01:
+            #     logger.info(f'lr={lr}, start cosine annealing!')
+            #     set_lr(optimizer, opt.TRAIN.COSINE.LR)
+            #     opt.TRAIN.COSINE.ENABLE = True
+            #
+            #     lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
+            #         opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
+            #         restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
 
         if opt.TRAIN.COSINE.ENABLE:
             lr_scheduler.step()
