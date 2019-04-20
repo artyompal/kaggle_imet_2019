@@ -356,7 +356,7 @@ def focal_loss(pred: torch.tensor, target: torch.tensor) -> float:
 def f2_loss(pred: torch.tensor, target: torch.tensor, epsilon:float=1e-7) -> float:
     beta = 2
     y_pred = nn.Sigmoid()(pred)
-    y_true = target.double()
+    y_true = target.float()
 
     TP = (y_pred * y_true).sum(1)
     prec = TP / (y_pred.sum(1) + epsilon)
