@@ -346,9 +346,11 @@ if __name__ == '__main__':
     parser.add_argument("--weights", help="model to resume training", type=str)
     parser.add_argument("--predict", help="model to resume training", action='store_true')
     parser.add_argument("--fold", help="fold number", type=int, default=0)
+    parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
     args = parser.parse_args()
 
     opt.EXPERIMENT.DIR = os.path.join(opt.EXPERIMENT.DIR, f'fold_{args.fold}')
+    opt.TEST.NUM_TTAS = args.num_tta
 
     if not os.path.exists(opt.EXPERIMENT.DIR):
         os.makedirs(opt.EXPERIMENT.DIR)
