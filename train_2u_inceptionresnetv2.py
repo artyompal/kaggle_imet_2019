@@ -31,12 +31,10 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchsummary
-    # from pytorchcv.model_provider import get_model
+    from pytorchcv.model_provider import get_model
     from hyperopt import hp, tpe, fmin
 else:
     from model_provider import get_model
-
-import pretrainedmodels
 
 import albumentations as albu
 from easydict import EasyDict as edict # type: ignore
@@ -60,7 +58,7 @@ opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
-opt.TRAIN.PRINT_FREQ = 20
+opt.TRAIN.PRINT_FREQ = 100
 opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
@@ -229,8 +227,7 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 def create_model(predict_only: bool, dropout: float) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    # model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
-    model = pretrainedmodels.__dict__[opt.MODEL.ARCH](pretrained='imagenet')
+    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
     if 'ception' not in opt.MODEL.ARCH:
         model.features[-1] = nn.AdaptiveAvgPool2d(1)
@@ -243,7 +240,7 @@ def create_model(predict_only: bool, dropout: float) -> Any:
                  nn.Dropout(dropout),
                  nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
     elif 'ception' in opt.MODEL.ARCH:
-        model.last_linear = nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES)
+        model.output[-1] = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
     else:
         if dropout < 0.1:
             model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
@@ -280,9 +277,6 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
         # compute output
         output = model(input_.cuda())
         loss = criterion(output, target.cuda())
-
-        # if i % 20 == 0:
-        #     print(output)
 
         # get metric
         predict = (output.detach() > 0.5).type(torch.FloatTensor)

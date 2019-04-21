@@ -239,6 +239,8 @@ def create_model(predict_only: bool, dropout: float) -> Any:
             model.output = nn.Sequential(
                  nn.Dropout(dropout),
                  nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
+    elif 'ception' in opt.MODEL.ARCH:
+        model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
     else:
         if dropout < 0.1:
             model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
