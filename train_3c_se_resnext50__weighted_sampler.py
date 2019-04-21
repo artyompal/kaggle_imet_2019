@@ -112,15 +112,22 @@ def calculate_sample_weights(train: pd.DataFrame) -> pd.DataFrame:
         least_freq_classes[i] = min(item.attribute_ids.split(), key=lambda c: cls_counts[c])
 
     print('least_freq_classes', list(least_freq_classes[:100]))
-    # print('least_freq_classes', list(least_freq_classes))
     assert all(least_freq_classes < opt.MODEL.NUM_CLASSES)
     assert all(least_freq_classes >= 0)
 
-    # sample_weights = compute_class_weight('balanced', range(opt.MODEL.NUM_CLASSES),
-    sample_weights = compute_class_weight('balanced', np.unique(least_freq_classes),
-                                          least_freq_classes)
+    unique_classes = np.unique(least_freq_classes)
+    dprint(unique_classes.shape)
+    dprint(unique_classes)
+
+    class_weights = compute_class_weight('balanced', unique_classes, least_freq_classes)
+    dprint(class_weights.shape)
+    dprint(class_weights)
+
+    weight_table = {c: w for c, w in zip(unique_classes, class_weights)}
+    sample_weights = np.array([weight_table[class_] for class_ in least_freq_classes])
     dprint(sample_weights.shape)
     dprint(sample_weights)
+
     return sample_weights
 
 def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -142,11 +149,11 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 
     full_df = pd.read_csv(opt.TRAIN.CSV)
     print('full_df', full_df.shape)
+
     train_df, val_df = train_val_split(full_df, fold)
     print('train_df', train_df.shape, 'val_df', val_df.shape)
 
-    calculate_sample_weights(train_df)
-    sys.exit()
+    sample_weights = calculate_sample_weights(train_df)
 
     test_df = pd.read_csv(opt.TEST.CSV)
 
@@ -182,9 +189,13 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
                            num_tta=opt.TEST.NUM_TTAS,
                            augmentor=transform_test)
 
+    sampler = torch.utils.data.sampler.WeightedRandomSampler(
+        weights=sample_weights[:len(train_dataset)],
+        num_samples=len(train_dataset))
+
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=opt.TRAIN.BATCH_SIZE, shuffle=True,
-        num_workers=opt.TRAIN.WORKERS)
+        train_dataset, batch_size=opt.TRAIN.BATCH_SIZE, shuffle=False,
+        sampler=sampler, num_workers=opt.TRAIN.WORKERS)
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=opt.TRAIN.BATCH_SIZE, shuffle=False, num_workers=opt.TRAIN.WORKERS)
@@ -408,7 +419,6 @@ def train_model(params: Dict[str, Any]) -> float:
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_epoch}')
-        set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.predict:
@@ -439,8 +449,7 @@ def train_model(params: Dict[str, Any]) -> float:
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
                 logger.info(f'checkpoint {best_model_path} was loaded.')
-                set_lr(optimizer, lr)
-                last_lr = lr
+                last_lr = read_lr(optimizer)
 
             if lr < opt.TRAIN.MIN_LR * 1.01:
                 logger.info('reached minimum LR, stopping')
