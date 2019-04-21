@@ -2,6 +2,8 @@
 from models.cbamresnet import *
 from models.pnasnet import *
 from models.seresnext import *
+from models.inceptionresnetv2 import *
+from models.xception import *
 
 __all__ = ['get_model']
 
@@ -18,6 +20,9 @@ _models = {
     'seresnext50_32x4d': seresnext50_32x4d,
     'seresnext101_32x4d': seresnext101_32x4d,
     'seresnext101_64x4d': seresnext101_64x4d,
+
+    'xception': xception,
+    'inceptionresnetv2': inceptionresnetv2,
 }
 
 

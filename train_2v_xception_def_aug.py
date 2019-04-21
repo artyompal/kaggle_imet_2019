@@ -40,6 +40,7 @@ from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
+opt.PRETRAINED_PATH = '../input/pytorchcv-models' if IN_KERNEL else '~/.torch/models/'
 
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'xception'
@@ -177,7 +178,8 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 def create_model(predict_only: bool, dropout: float) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
+    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only,
+                      root=opt.PRETRAINED_PATH)
 
     if 'ception' not in opt.MODEL.ARCH:
         model.features[-1] = nn.AdaptiveAvgPool2d(1)
@@ -479,7 +481,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
     args = parser.parse_args()
 
-    params = {}
+    params = {'dropout': 0} # not used with Xception
 
     opt.EXPERIMENT_DIR = os.path.join(opt.EXPERIMENT_DIR, f'fold_{args.fold}')
     opt.TEST.NUM_TTAS = args.num_tta
