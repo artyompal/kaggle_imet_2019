@@ -183,11 +183,15 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
         albu.Compose(augs, p=float(params['aug_global_prob']))
         ])
 
-    transform_test = albu.Compose([
-        # transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
-        albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
-        albu.HorizontalFlip(),
-    ])
+    if opt.TEST.NUM_TTAS > 1:
+        transform_test = albu.Compose([
+            albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+            albu.HorizontalFlip(),
+        ])
+    else:
+        transform_test = albu.Compose([
+            albu.CenterCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+        ])
 
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',

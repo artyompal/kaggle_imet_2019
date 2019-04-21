@@ -135,12 +135,15 @@ def load_data(fold: int) -> Any:
         # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
     ])
 
-    transform_test = transforms.Compose([
-        # transforms.Resize((opt.MODEL.IMAGE_SIZE)),
-        # transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomHorizontalFlip(),
-    ])
+    if opt.TEST.NUM_TTAS > 1:
+        transform_test = transforms.Compose([
+            transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+            transforms.RandomHorizontalFlip(),
+        ])
+    else:
+        transform_test = transforms.Compose([
+            transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
+        ])
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
                             num_classes=opt.MODEL.NUM_CLASSES, resize=False,
@@ -432,13 +435,16 @@ if __name__ == '__main__':
                 last_lr = lr
 
             if lr < opt.TRAIN.MIN_LR * 1.01:
-                logger.info(f'lr={lr}, start cosine annealing!')
-                set_lr(optimizer, opt.TRAIN.COSINE.LR)
-                opt.TRAIN.COSINE.ENABLE = True
+                logger.info('reached minimum LR, stopping')
+                break
 
-                lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
-                    opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
-                    restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
+                # logger.info(f'lr={lr}, start cosine annealing!')
+                # set_lr(optimizer, opt.TRAIN.COSINE.LR)
+                # opt.TRAIN.COSINE.ENABLE = True
+                #
+                # lr_scheduler = CosineLRWithRestarts(optimizer, opt.TRAIN.BATCH_SIZE,
+                #     opt.TRAIN.BATCH_SIZE * opt.TRAIN.STEPS_PER_EPOCH,
+                #     restart_period=opt.TRAIN.COSINE.PERIOD, t_mult=opt.TRAIN.COSINE.COEFF)
 
         if opt.TRAIN.COSINE.ENABLE:
             lr_scheduler.step()

@@ -134,13 +134,15 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
         # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
     ])
 
-    transform_test = transforms.Compose([
-        # transforms.Resize((opt.MODEL.IMAGE_SIZE)),
-        # transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomHorizontalFlip(),
-    ])
-
+    if opt.TEST.NUM_TTAS > 1:
+        transform_test = transforms.Compose([
+            transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+            transforms.RandomHorizontalFlip(),
+        ])
+    else:
+        transform_test = transforms.Compose([
+            transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
+        ])
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
                             num_classes=opt.MODEL.NUM_CLASSES, resize=False,
