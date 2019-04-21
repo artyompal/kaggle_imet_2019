@@ -3,7 +3,7 @@ import base64, gzip, os, sys
 from pathlib import Path
 
 def encode_file(path: str) -> str:
-    if path == 'easydict.py':
+    if path == 'easydict.py':   # I need this hack to fool mypy linter
         path = 'easydict__.py'
 
     compressed = gzip.compress(Path(path).read_bytes(), compresslevel=9)
@@ -17,9 +17,38 @@ if __name__ == '__main__':
     script_py = sys.argv[1]
 
     # TODO: infer this by parsing the file
-    to_encode = ['easydict.py', 'data_loader_v1_single.py', 'utils.py', 'debug.py',
-                 'cosine_scheduler.py', 'senet.py', 'folds.npy', 'blend.py',
-                 'train_2a_resnet50.py', 'train_2b_se_resnext50.py', script_py]
+    to_encode = [
+        # common files
+        'easydict.py',
+        'data_loader_v1_single.py',
+        'data_loader_v2_albu.py',
+        'utils.py',
+        'debug.py',
+        'cosine_scheduler.py',
+        'folds.npy',
+
+        # models
+        'senet.py',
+        'model_provider.py',
+        'models/cbamresnet.py',
+        'models/common.py',
+        'models/nasnet.py',
+        'models/pnasnet.py',
+        'models/resnet.py',
+        'models/resnext.py',
+        'models/seresnext.py',
+
+        # prediction scripts
+        'train_2b_se_resnext50.py',
+        'train_2i_se_resnext101_auto_aug.py',
+        'train_2j_cbam_resnet50_auto_aug.py',
+        'train_2k_pnasnet_auto_aug.py',
+        'train_2o_se_resnext101_def_aug.py',
+
+        # ensemble scripts
+        'blend.py',
+        script_py
+        ]
 
     file_data = {path: encode_file(path) for path in to_encode}
     printed_data = ',\n'.join([f'"{filename}": "{content}"' for filename, content in
@@ -32,4 +61,4 @@ if __name__ == '__main__':
     dest_name = 'sub_' + os.path.basename(script_py)
     with open(dest_name, 'w') as f:
         f.write(template)
-        f.write('\nos.system(\'export PYTHONPATH=${PYTHONPATH}:/kaggle/working && python ' + script_py + '\')')
+        f.write('\nos.system(\'export PYTHONPATH=${PYTHONPATH}:/kaggle/working && python ' + script_py + '\')\n\n')

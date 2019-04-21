@@ -15,11 +15,6 @@ def run(command: List[str]) -> None:
 
 coeff = 3
 models = {
-    '2b_se_resnext50_f0_e14_0.5975.pth': coeff,
-    '2b_se_resnext50_f1_e19_0.6006.pth': coeff,
-    '2b_se_resnext50_f2_e20_0.5973.pth': coeff,
-    '2b_se_resnext50_f3_e21_0.5982.pth': coeff,
-    '2b_se_resnext50_f4_e21_0.5978.pth': coeff,
     '2i_se_resnext101_auto_aug_f0_e27_0.5991.pth': coeff,
     '2i_se_resnext101_auto_aug_f1_e23_0.6011.pth': coeff,
     '2i_se_resnext101_auto_aug_f2_e27_0.5986.pth': coeff,
@@ -40,6 +35,11 @@ models = {
     '2o_se_resnext101_def_aug_f2_e25_0.6022.pth': coeff,
     '2o_se_resnext101_def_aug_f3_e26_0.6032.pth': coeff,
     '2o_se_resnext101_def_aug_f4_e21_0.6032.pth': coeff,
+    '2b_se_resnext50_f0_e14_0.5975.pth': coeff,
+    '2b_se_resnext50_f1_e19_0.6006.pth': coeff,
+    '2b_se_resnext50_f2_e20_0.5973.pth': coeff,
+    '2b_se_resnext50_f3_e21_0.5982.pth': coeff,
+    '2b_se_resnext50_f4_e21_0.5978.pth': coeff,
     }
 
 model2path = {os.path.basename(path): path for path in glob(MODEL_PATH + '**/*.pth')}
