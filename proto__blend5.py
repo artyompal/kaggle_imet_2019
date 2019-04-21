@@ -53,7 +53,7 @@ for model in models.keys():
     script_name = f'train_{m.group(1)}.py'
     fold = m.group(2)
 
-    cmd = ['python3.6', script_name, '--predict', '--weights', MODEL_PATH + model,
+    cmd = ['python3.6', script_name, '--predict', '--weights', model2path[model],
            '--fold', fold, '--num_tta', '1']
     print('running', cmd)
     run(cmd)
