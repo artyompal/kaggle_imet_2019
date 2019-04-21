@@ -32,11 +32,9 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 if not IN_KERNEL:
     import torchsummary
     from pytorchcv.model_provider import get_model
-    import albumentations as albu
     from hyperopt import hp, tpe, fmin
-else:
-    import senet
 
+import albumentations as albu
 from easydict import EasyDict as edict # type: ignore
 
 opt = edict()

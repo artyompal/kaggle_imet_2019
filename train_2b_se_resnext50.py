@@ -33,7 +33,6 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 if not IN_KERNEL:
     import torchsummary
     import pretrainedmodels
-    import albumentations
     import pytorchcv
 
 from easydict import EasyDict as edict # type: ignore

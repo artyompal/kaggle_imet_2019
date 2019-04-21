@@ -33,8 +33,6 @@ if not IN_KERNEL:
     import torchsummary
     from pytorchcv.model_provider import get_model
     from hyperopt import hp, tpe, fmin
-else:
-    import senet
 
 from easydict import EasyDict as edict # type: ignore
 

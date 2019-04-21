@@ -1,6 +1,8 @@
 #!/usr/bin/python3.6
 import base64, gzip, os, sys
 from pathlib import Path
+from glob import glob
+
 
 def encode_file(path: str) -> str:
     if path == 'easydict.py':   # I need this hack to fool mypy linter
@@ -30,13 +32,6 @@ if __name__ == '__main__':
         # models
         'senet.py',
         'model_provider.py',
-        'models/cbamresnet.py',
-        'models/common.py',
-        'models/nasnet.py',
-        'models/pnasnet.py',
-        'models/resnet.py',
-        'models/resnext.py',
-        'models/seresnext.py',
 
         # prediction scripts
         'train_2b_se_resnext50.py',
@@ -47,8 +42,11 @@ if __name__ == '__main__':
 
         # ensemble scripts
         'blend.py',
-        script_py
+        script_py,
         ]
+
+    to_encode.extend(list(glob('**/*.py')))
+    to_encode.extend(list(glob('albumentations/**/*.py')))
 
     file_data = {path: encode_file(path) for path in to_encode}
     printed_data = ',\n'.join([f'"{filename}": "{content}"' for filename, content in
