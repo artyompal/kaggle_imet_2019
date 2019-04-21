@@ -21,7 +21,7 @@ import torchvision.models as models
 from sklearn.model_selection import KFold
 import PIL
 
-from data_loader_v1_single import Dataset
+from data_loader_v2_albu import Dataset
 from utils import create_logger, AverageMeter, F_score
 from debug import dprint, assert_eq, assert_ne
 from cosine_scheduler import CosineLRWithRestarts
@@ -34,8 +34,9 @@ if not IN_KERNEL:
     from pytorchcv.model_provider import get_model
     from hyperopt import hp, tpe, fmin
 else:
-    import senet
+    from model_provider import get_model
 
+import albumentations as albu
 from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
@@ -62,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 100
+opt.TRAIN.EPOCHS = 30
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -125,21 +126,72 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
     print('train_df', train_df.shape, 'val_df', val_df.shape)
     test_df = pd.read_csv(opt.TEST.CSV)
 
-    transform_train = transforms.Compose([
-        # transforms.Resize((opt.MODEL.IMAGE_SIZE)), # smaller edge
-        transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomHorizontalFlip(),
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2),
-        # transforms.RandomAffine(degrees=20, scale=(0.8, 1.2), shear=10, resample=PIL.Image.BILINEAR),
-        # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-    ])
+    # transform_train = transforms.Compose([
+    #     # transforms.Resize((opt.MODEL.IMAGE_SIZE)), # smaller edge
+    #     transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+    #     transforms.RandomHorizontalFlip(),
+    #     # transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    #     # transforms.RandomAffine(degrees=20, scale=(0.8, 1.2), shear=10, resample=PIL.Image.BILINEAR),
+    #     # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+    # ])
 
-    transform_test = transforms.Compose([
-        # transforms.Resize((opt.MODEL.IMAGE_SIZE)),
-        # transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomHorizontalFlip(),
-    ])
+    augs = []
+    augs.append(albu.HorizontalFlip(.5))
+    if int(params['vflip']):
+        augs.append(albu.VerticalFlip(.5))
+    if int(params['rotate90']):
+        augs.append(albu.RandomRotate90())
+
+    if params['affine'] == 'soft':
+        augs.append(albu.ShiftScaleRotate(shift_limit=0.075, scale_limit=0.15, rotate_limit=10, p=.75))
+    elif params['affine'] == 'medium':
+        augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.2))
+    elif params['affine'] == 'hard':
+        augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.50, rotate_limit=45, p=.75))
+
+    if float(params['noise']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.IAAAdditiveGaussianNoise(),
+            albu.GaussNoise(),
+        ], p=float(params['noise'])))
+
+    if float(params['blur']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.MotionBlur(p=.2),
+            albu.MedianBlur(blur_limit=3, p=0.1),
+            albu.Blur(blur_limit=3, p=0.1),
+        ], p=float(params['blur'])))
+
+    if float(params['distortion']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.OpticalDistortion(p=0.3),
+            albu.GridDistortion(p=.1),
+            albu.IAAPiecewiseAffine(p=0.3),
+        ], p=float(params['distortion'])))
+
+    if float(params['color']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.CLAHE(clip_limit=2),
+            albu.IAASharpen(),
+            albu.IAAEmboss(),
+            albu.RandomBrightnessContrast(),
+        ], p=float(params['color'])))
+
+
+    transform_train = albu.Compose([
+        albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+        albu.Compose(augs, p=float(params['aug_global_prob']))
+        ])
+
+    if opt.TEST.NUM_TTAS > 1:
+        transform_test = albu.Compose([
+            albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+            albu.HorizontalFlip(),
+        ])
+    else:
+        transform_test = albu.Compose([
+            albu.CenterCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+        ])
 
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
@@ -387,6 +439,7 @@ def train_model(params: Dict[str, Any]) -> float:
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_epoch}')
+        set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.predict:
@@ -417,7 +470,8 @@ def train_model(params: Dict[str, Any]) -> float:
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
                 logger.info(f'checkpoint {best_model_path} was loaded.')
-                last_lr = read_lr(optimizer)
+                set_lr(optimizer, lr)
+                last_lr = lr
 
             if lr < opt.TRAIN.MIN_LR * 1.01:
                 logger.info('reached minimum LR, stopping')
@@ -470,11 +524,21 @@ if __name__ == '__main__':
     parser.add_argument('--weights', help='model to resume training', type=str)
     parser.add_argument('--fold', help='fold number', type=int, default=0)
     parser.add_argument('--predict', help='model to resume training', action='store_true')
+    parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
     args = parser.parse_args()
 
-    params = {'dropout': 0}
+    params = {'affine': 'medium',
+              'aug_global_prob': 0.5346290229823514,
+              'blur': 0.1663552826866818,
+              'color': 0.112355821364934,
+              'distortion': 0.12486453027371469,
+              'dropout': 0.3,
+              'noise': 0.29392632695458587,
+              'rotate90': 0,
+              'vflip': 0}
 
     opt.EXPERIMENT_DIR = os.path.join(opt.EXPERIMENT_DIR, f'fold_{args.fold}')
+    opt.TEST.NUM_TTAS = args.num_tta
 
     if not os.path.exists(opt.EXPERIMENT_DIR):
         os.makedirs(opt.EXPERIMENT_DIR)
