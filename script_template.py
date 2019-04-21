@@ -4,12 +4,16 @@ import base64
 import os
 from pathlib import Path
 from typing import Dict
+from glob import glob
 
 # this is base64 encoded source code
 file_data: Dict = {file_data}
 
 for path, encoded in file_data.items():
-    print(path)
     path = Path(path)
-    path.parent.mkdir(exist_ok=True)
+    os.makedirs(path.parent, exist_ok=True)
+    # print('unpacking', path)
     path.write_bytes(gzip.decompress(base64.b64decode(encoded)))
+
+print('file list after extraction')
+print(list(glob('**/*.py', recursive=True)))
