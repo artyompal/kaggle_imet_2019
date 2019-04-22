@@ -54,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 20 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 16 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 30
+opt.TRAIN.EPOCHS = 70
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
