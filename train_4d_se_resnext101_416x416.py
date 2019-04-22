@@ -43,9 +43,9 @@ opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'inceptionresnetv2'
+opt.MODEL.ARCH = 'seresnext101_32x4d'
 # opt.MODEL.IMAGE_SIZE = 256
-opt.MODEL.INPUT_SIZE = 299 # crop size
+opt.MODEL.INPUT_SIZE = 416 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
 opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
@@ -54,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 20 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 50
+opt.TRAIN.EPOCHS = 30
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -179,37 +179,37 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 
 
     transform_train = albu.Compose([
+        albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
         albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
-        albu.Compose(augs, p=float(params['aug_global_prob']))
+        albu.Compose(augs, p=float(params['aug_global_prob'])),
         ])
 
     if opt.TEST.NUM_TTAS > 1:
         transform_test = albu.Compose([
+            albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
             albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
             albu.HorizontalFlip(),
         ])
     else:
         transform_test = albu.Compose([
+            albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
             albu.CenterCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
         ])
 
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
                             num_classes=opt.MODEL.NUM_CLASSES, resize=False,
-                            inception=True,
                             augmentor=transform_train)
 
     val_dataset = Dataset(val_df, path=opt.TRAIN.PATH, mode='val',
                           # image_size=opt.MODEL.INPUT_SIZE,
                           num_classes=opt.MODEL.NUM_CLASSES, resize=False,
                           num_tta=1, # opt.TEST.NUM_TTAS,
-                          inception=True,
                           augmentor=transform_test)
     test_dataset = Dataset(test_df, path=opt.TEST.PATH, mode='test',
                            # image_size=opt.MODEL.INPUT_SIZE,
                            num_classes=opt.MODEL.NUM_CLASSES, resize=False,
                            num_tta=opt.TEST.NUM_TTAS,
-                           inception=True,
                            augmentor=transform_test)
 
     train_loader = torch.utils.data.DataLoader(
@@ -229,8 +229,7 @@ def create_model(predict_only: bool, dropout: float) -> Any:
 
     model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
-    if 'ception' not in opt.MODEL.ARCH:
-        model.features[-1] = nn.AdaptiveAvgPool2d(1)
+    model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
     if opt.MODEL.ARCH == 'pnasnet5large':
         if dropout < 0.1:
@@ -239,8 +238,6 @@ def create_model(predict_only: bool, dropout: float) -> Any:
             model.output = nn.Sequential(
                  nn.Dropout(dropout),
                  nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
-    elif 'ception' in opt.MODEL.ARCH:
-        model.output[-1] = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
     else:
         if dropout < 0.1:
             model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
