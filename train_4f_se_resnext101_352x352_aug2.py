@@ -527,7 +527,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     params = {'affine': 'medium',
-              'aug_global_prob': 1.0
+              'aug_global_prob': 1.0,
               'blur': 0.3,
               'color': 0,
               'distortion': 0.2,

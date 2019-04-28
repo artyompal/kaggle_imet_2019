@@ -529,7 +529,7 @@ if __name__ == '__main__':
     params = {'affine': 'hard',
               'aug_global_prob': 1.0,
               'blur': 0.2,
-              'color': 0
+              'color': 0,
               'distortion': 0.2,
               'dropout': 0.3,
               'noise': 0.3,
