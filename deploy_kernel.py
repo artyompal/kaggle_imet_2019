@@ -39,6 +39,7 @@ if __name__ == '__main__':
         'train_2j_cbam_resnet50_auto_aug.py',
         'train_2k_pnasnet_auto_aug.py',
         'train_2o_se_resnext101_def_aug.py',
+        'train_4b_se_resnext101_352x352.py',
 
         # ensemble scripts
         'blend.py',
