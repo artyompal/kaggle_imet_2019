@@ -54,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 16 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 24 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())

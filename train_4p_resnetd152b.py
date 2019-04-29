@@ -43,7 +43,7 @@ opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'resnetd101b'
+opt.MODEL.ARCH = 'resnetd152b'
 # opt.MODEL.IMAGE_SIZE = 256
 opt.MODEL.INPUT_SIZE = 352 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
@@ -54,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 8 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 6 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
