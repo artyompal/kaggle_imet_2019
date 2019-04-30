@@ -51,7 +51,8 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def F_score(predict: np.array, label: np.array, threshold:float=0.5, beta:int=2) -> torch.tensor:
+def F_score(predict: torch.tensor, label: torch.tensor, threshold: torch.tensor,
+            beta: int = 2) -> float:
     predict = predict > threshold
     label = label > threshold
 

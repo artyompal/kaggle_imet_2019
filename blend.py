@@ -6,7 +6,7 @@ import numpy as np, pandas as pd
 from tqdm import tqdm
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
-INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else 'input/'
+INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 if __name__ == '__main__':
     if len(sys.argv) < 4 or len(sys.argv) % 2 != 0:
