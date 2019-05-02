@@ -34,12 +34,13 @@ if __name__ == '__main__':
         'model_provider.py',
 
         # prediction scripts
-        'train_2b_se_resnext50.py',
-        'train_2i_se_resnext101_auto_aug.py',
-        'train_2j_cbam_resnet50_auto_aug.py',
-        'train_2k_pnasnet_auto_aug.py',
+#         'train_2b_se_resnext50.py',
+#         'train_2i_se_resnext101_auto_aug.py',
+#         'train_2j_cbam_resnet50_auto_aug.py',
+#         'train_2k_pnasnet_auto_aug.py',
         'train_2o_se_resnext101_def_aug.py',
         'train_4b_se_resnext101_352x352.py',
+        'train_4f_se_resnext101_352x352_aug2.py',
 
         # ensemble scripts
         'blend.py',
