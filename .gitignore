@@ -4,4 +4,5 @@ submission.py
 *.csv.py
 sub_*.py
 *.pth
+*.npy
 *.npz

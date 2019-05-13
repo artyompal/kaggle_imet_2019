@@ -79,7 +79,7 @@ opt.TRAIN.COSINE.COEFF = 1.2
 opt.TEST = edict()
 opt.TEST.PATH = opt.INPUT + 'test'
 opt.TEST.CSV = opt.INPUT + 'sample_submission.csv'
-opt.TEST.NUM_TTAS = 4
+opt.TEST.NUM_TTAS = 2
 opt.TEST.TTA_COMBINE_FUNC = 'mean'
 
 
@@ -149,12 +149,11 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
                             augmentor=transform_train)
 
     val_dataset = Dataset(val_df, path=opt.TRAIN.PATH, mode='val',
-                          # image_size=opt.MODEL.INPUT_SIZE,
                           num_classes=opt.MODEL.NUM_CLASSES, resize=False,
-                          num_tta=1, # opt.TEST.NUM_TTAS,
+                          num_tta=opt.TEST.NUM_TTAS,
                           augmentor=transform_test)
+
     test_dataset = Dataset(test_df, path=opt.TEST.PATH, mode='test',
-                           # image_size=opt.MODEL.INPUT_SIZE,
                            num_classes=opt.MODEL.NUM_CLASSES, resize=False,
                            num_tta=opt.TEST.NUM_TTAS,
                            augmentor=transform_test)
@@ -247,7 +246,7 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
 
     logger.info(f' * average accuracy on train {avg_score.avg:.4f}')
 
-def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]:
+def inference(data_loader: Any, model: Any) -> Tuple[torch.Tensor, torch.Tensor]:
     ''' Returns predictions and targets, if any. '''
     model.eval()
 
@@ -256,7 +255,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]
 
     with torch.no_grad():
         for i, (input_, target) in enumerate(tqdm(data_loader, disable=IN_KERNEL)):
-            if opt.TEST.NUM_TTAS != 1 and data_loader.dataset.mode == 'test':
+            if opt.TEST.NUM_TTAS != 1:
                 bs, ncrops, c, h, w = input_.size()
                 input_ = input_.view(-1, c, h, w) # fuse batch size and ncrops
 
@@ -281,7 +280,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.tensor, torch.tensor]
     targets = np.concatenate(targets_list)
     return predicts, targets
 
-def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
+def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.ndarray]:
     ''' Calculates validation score.
     1. Infers predictions
     2. Finds optimal threshold
@@ -299,15 +298,20 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float]:
 
     logger.info(f'{epoch} F2 {best_score:.4f} threshold {best_thresh:.4f}')
     logger.info(f' * F2 on validation {best_score:.4f}')
-    return best_score, best_thresh
+    return best_score, best_thresh, predicts.numpy()
 
-def generate_submission(val_loader: Any, test_loader: Any, model: Any,
-                        epoch: int, model_path: Any) -> np.ndarray:
-    score, threshold = validate(val_loader, model, epoch)
-    predicts, _ = inference(test_loader, model)
+def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
+                   model_path: Any) -> np.ndarray:
+    score, threshold, predicts = validate(val_loader, model, epoch)
 
-    filename = f'pred_level1_{os.path.splitext(os.path.basename(model_path))[0]}'
-    np.savez(filename, predicts=predicts, threshold=threshold)
+    if args.dataset == 'test':
+        predicts, _ = inference(test_loader, model)
+
+    predicts -= threshold
+
+    name = 'test' if args.dataset == 'test' else 'train'
+    filename = f'level1_{name}_{os.path.splitext(os.path.basename(model_path))[0]}'
+    np.save(filename, predicts)
 
 def set_lr(optimizer: Any, lr: float) -> None:
     for param_group in optimizer.param_groups:
@@ -348,7 +352,7 @@ def train_model(params: Dict[str, Any]) -> float:
     logger.info(f'hyperparameters: {params}')
 
     train_loader, val_loader, test_loader = load_data(args.fold, params)
-    model = create_model(args.predict, float(params['dropout']))
+    model = create_model(args.gen_predict, float(params['dropout']))
     # freeze_layers(model)
 
     # if torch.cuda.device_count() == 1:
@@ -388,9 +392,9 @@ def train_model(params: Dict[str, Any]) -> float:
         set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
-    if args.predict:
+    if args.gen_predict:
         print('inference mode')
-        generate_submission(val_loader, test_loader, model, last_epoch, args.weights)
+        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
         sys.exit(0)
 
     if opt.TRAIN.LOSS == 'BCE':
@@ -437,7 +441,7 @@ def train_model(params: Dict[str, Any]) -> float:
         read_lr(optimizer)
 
         train(train_loader, model, criterion, optimizer, epoch, lr_scheduler)
-        score, _ = validate(val_loader, model, epoch)
+        score, _, _ = validate(val_loader, model, epoch)
 
         if not opt.TRAIN.COSINE.ENABLE:
             lr_scheduler.step(score)    # type: ignore
@@ -469,8 +473,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', help='model to resume training', type=str)
     parser.add_argument('--fold', help='fold number', type=int, default=0)
-    parser.add_argument('--predict', help='model to resume training', action='store_true')
+    parser.add_argument('--gen_predict', help='make prediction', action='store_true')
     parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
+    parser.add_argument('--dataset', help='dataset for prediction, train/test',
+                        type=str, default='test')
     args = parser.parse_args()
 
     params = {'dropout': 0.3}
