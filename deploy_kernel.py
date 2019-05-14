@@ -30,7 +30,6 @@ if __name__ == '__main__':
         'folds.npy',
 
         # models
-        'senet.py',
         'model_provider.py',
 
         # prediction scripts
