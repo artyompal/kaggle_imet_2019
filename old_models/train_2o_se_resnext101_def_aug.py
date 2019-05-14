@@ -19,7 +19,6 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 
 from sklearn.model_selection import KFold
-import senet
 import PIL
 
 from data_loader_v1_single import Dataset
@@ -32,8 +31,10 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchsummary
-    import pretrainedmodels
-    import pytorchcv
+    from pytorchcv.model_provider import get_model
+    from hyperopt import hp, tpe, fmin
+else:
+    from model_provider import get_model
 
 from easydict import EasyDict as edict # type: ignore
 
@@ -41,20 +42,18 @@ opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'se_resnext50_32x4d'
+opt.MODEL.ARCH = 'seresnext101_32x4d'
 # opt.MODEL.IMAGE_SIZE = 256
 opt.MODEL.INPUT_SIZE = 288 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
 opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
-opt.MODEL.POOL_SIZE = 1 # 7
 
-opt.EXPERIMENT = edict()
-opt.EXPERIMENT.DIR = f'../models/{opt.MODEL.VERSION}'
+opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 20 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -63,7 +62,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 1000
+opt.TRAIN.EPOCHS = 30
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -113,7 +112,7 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
     assert folds.shape[0] == df.shape[0]
     return df.loc[folds != fold], df.loc[folds == fold]
 
-def load_data(fold: int) -> Any:
+def load_data(fold: int, params: Dict[str, Any]) -> Any:
     torch.multiprocessing.set_sharing_strategy('file_system')
     cudnn.benchmark = True
 
@@ -171,32 +170,34 @@ def load_data(fold: int) -> Any:
 
     return train_loader, val_loader, test_loader
 
-def create_model(predict_only: bool) -> Any:
+def create_model(predict_only: bool, dropout: float) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    logger.info("using model '{}'".format(opt.MODEL.ARCH ))
+    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
 
-    if opt.MODEL.ARCH in models.__dict__:
-        model = models.__dict__[opt.MODEL.ARCH](pretrained=not predict_only)
+    model.features[-1] = nn.AdaptiveAvgPool2d(1)
+
+    if opt.MODEL.ARCH == 'pnasnet5large':
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
     else:
-        model = senet.__dict__[opt.MODEL.ARCH](pretrained=None)
-
-    assert(opt.MODEL.INPUT_SIZE % 32 == 0)
-
-    if opt.MODEL.ARCH.startswith('resnet'):
-        model.avgpool = nn.AdaptiveAvgPool2d(opt.MODEL.POOL_SIZE)
-        model.fc = nn.Linear(model.fc.in_features, opt.MODEL.NUM_CLASSES)
-    else:
-        model.avg_pool = nn.AdaptiveAvgPool2d(opt.MODEL.POOL_SIZE)
-        model.last_linear = nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES)
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
 
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
-
     return model
 
-def save_checkpoint(state: Dict[str, Any], filename: str) -> None:
-    torch.save(state, os.path.join(opt.EXPERIMENT.DIR, filename))
+def save_checkpoint(state: Dict[str, Any], filename: str, model_dir: str) -> None:
+    torch.save(state, os.path.join(model_dir, filename))
     logger.info(f'A snapshot was saved to {filename}')
 
 def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
@@ -208,8 +209,8 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
 
     model.train()
 
-    print('total batches:', len(train_loader))
     num_steps = min(len(train_loader), opt.TRAIN.STEPS_PER_EPOCH)
+    print('total batches:', len(train_loader))
 
     end = time.time()
     for i, (input_, target) in enumerate(train_loader):
@@ -300,8 +301,9 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.
     return best_score, best_thresh, predicts.numpy()
 
 def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
-                   model_path: Any) -> np.ndarray:
-    score, threshold, predicts = validate(val_loader, model, epoch)
+                   model_path: Any, threshold: float = 0) -> np.ndarray:
+    if threshold == 0 or args.dataset == 'train':
+        score, threshold, predicts = validate(val_loader, model, epoch)
 
     if args.dataset == 'test':
         predicts, _ = inference(test_loader, model)
@@ -343,31 +345,15 @@ def unfreeze_layers(model: Any) -> None:
             param.requires_grad = True
 
 
-if __name__ == '__main__':
+def train_model(params: Dict[str, Any]) -> float:
     np.random.seed(0)
+    model_dir = opt.EXPERIMENT_DIR
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', help='model to resume training', type=str)
-    parser.add_argument('--fold', help='fold number', type=int, default=0)
-    parser.add_argument('--gen_predict', help='make prediction', action='store_true')
-    parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
-    parser.add_argument('--dataset', help='dataset for prediction, train/test',
-                        type=str, default='test')
-    args = parser.parse_args()
-
-    opt.EXPERIMENT.DIR = os.path.join(opt.EXPERIMENT.DIR, f'fold_{args.fold}')
-    opt.TEST.NUM_TTAS = args.num_tta
-
-    if not os.path.exists(opt.EXPERIMENT.DIR):
-        os.makedirs(opt.EXPERIMENT.DIR)
-
-    log_file = os.path.join(opt.EXPERIMENT.DIR, f'log_training.txt')
-    logger = create_logger(log_file)
     logger.info('=' * 50)
+    logger.info(f'hyperparameters: {params}')
 
-    #print("available models:", pretrainedmodels.model_names)
-    train_loader, val_loader, test_loader = load_data(args.fold)
-    model = create_model(args.gen_predict)
+    train_loader, val_loader, test_loader = load_data(args.fold, params)
+    model = create_model(args.gen_predict, float(params['dropout']))
     # freeze_layers(model)
 
     # if torch.cuda.device_count() == 1:
@@ -403,13 +389,13 @@ if __name__ == '__main__':
         logger.info(f'checkpoint {args.weights} was loaded.')
 
         last_epoch = last_checkpoint['epoch']
-        logger.info(f'loaded the model from epoch {last_checkpoint["epoch"]}')
+        logger.info(f'loaded the model from epoch {last_epoch}')
         set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.gen_predict:
         print('inference mode')
-        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
+        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights, args.threshold)
         sys.exit(0)
 
     if opt.TRAIN.LOSS == 'BCE':
@@ -430,7 +416,7 @@ if __name__ == '__main__':
             lr = read_lr(optimizer)
             if lr < last_lr - 1e-10 and best_model_path is not None:
                 # reload the best model
-                last_checkpoint = torch.load(os.path.join(opt.EXPERIMENT.DIR, best_model_path))
+                last_checkpoint = torch.load(os.path.join(model_dir, best_model_path))
                 assert(last_checkpoint['arch']==opt.MODEL.ARCH)
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
@@ -479,6 +465,29 @@ if __name__ == '__main__':
         filename = opt.MODEL.VERSION
         if is_best:
             best_model_path = f'{filename}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth'
-            save_checkpoint(data_to_save, best_model_path)
+            save_checkpoint(data_to_save, best_model_path, model_dir)
 
     logger.info(f'best score: {best_score:.04f}')
+    return -best_score
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--weights', help='model to resume training', type=str)
+    parser.add_argument('--fold', help='fold number', type=int, default=0)
+    parser.add_argument('--gen_predict', help='make prediction', action='store_true')
+    parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
+    parser.add_argument('--dataset', help='dataset for prediction, train/test',
+                        type=str, default='test')
+    parser.add_argument('--threshold', help='threshold to use', type=float, default=0)
+    args = parser.parse_args()
+
+    params = {'dropout': 0.3}
+
+    opt.EXPERIMENT_DIR = os.path.join(opt.EXPERIMENT_DIR, f'fold_{args.fold}')
+    opt.TEST.NUM_TTAS = args.num_tta
+
+    if not os.path.exists(opt.EXPERIMENT_DIR):
+        os.makedirs(opt.EXPERIMENT_DIR)
+
+    logger = create_logger(os.path.join(opt.EXPERIMENT_DIR, 'log_training.txt'))
+    train_model(params)

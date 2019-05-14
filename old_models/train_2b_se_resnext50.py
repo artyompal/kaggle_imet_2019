@@ -19,9 +19,10 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 
 from sklearn.model_selection import KFold
+import senet
 import PIL
 
-from data_loader_v2_albu import Dataset
+from data_loader_v1_single import Dataset
 from utils import create_logger, AverageMeter, F_score
 from debug import dprint, assert_eq, assert_ne
 from cosine_scheduler import CosineLRWithRestarts
@@ -31,30 +32,29 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchsummary
-    from pytorchcv.model_provider import get_model
-    from hyperopt import hp, tpe, fmin
-else:
-    from model_provider import get_model
+    import pretrainedmodels
+    import pytorchcv
 
-import albumentations as albu
 from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'seresnext101_32x4d'
+opt.MODEL.ARCH = 'se_resnext50_32x4d'
 # opt.MODEL.IMAGE_SIZE = 256
-opt.MODEL.INPUT_SIZE = 352 # crop size
+opt.MODEL.INPUT_SIZE = 288 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
 opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
+opt.MODEL.POOL_SIZE = 1 # 7
 
-opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
+opt.EXPERIMENT = edict()
+opt.EXPERIMENT.DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 16 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 70
+opt.TRAIN.EPOCHS = 1000
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -113,7 +113,7 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
     assert folds.shape[0] == df.shape[0]
     return df.loc[folds != fold], df.loc[folds == fold]
 
-def load_data(fold: int, params: Dict[str, Any]) -> Any:
+def load_data(fold: int) -> Any:
     torch.multiprocessing.set_sharing_strategy('file_system')
     cudnn.benchmark = True
 
@@ -126,76 +126,24 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
     print('train_df', train_df.shape, 'val_df', val_df.shape)
     test_df = pd.read_csv(opt.TEST.CSV)
 
-    # transform_train = transforms.Compose([
-    #     # transforms.Resize((opt.MODEL.IMAGE_SIZE)), # smaller edge
-    #     transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-    #     transforms.RandomHorizontalFlip(),
-    #     # transforms.ColorJitter(brightness=0.2, contrast=0.2),
-    #     # transforms.RandomAffine(degrees=20, scale=(0.8, 1.2), shear=10, resample=PIL.Image.BILINEAR),
-    #     # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-    # ])
-
-    augs = []
-    augs.append(albu.HorizontalFlip(.5))
-    if int(params['vflip']):
-        augs.append(albu.VerticalFlip(.5))
-    if int(params['rotate90']):
-        augs.append(albu.RandomRotate90())
-
-    if params['affine'] == 'soft':
-        augs.append(albu.ShiftScaleRotate(shift_limit=0.075, scale_limit=0.15, rotate_limit=10, p=.75))
-    elif params['affine'] == 'medium':
-        augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.2))
-    elif params['affine'] == 'hard':
-        augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.50, rotate_limit=45, p=.75))
-
-    if float(params['noise']) > 0.1:
-        augs.append(albu.OneOf([
-            albu.IAAAdditiveGaussianNoise(),
-            albu.GaussNoise(),
-        ], p=float(params['noise'])))
-
-    if float(params['blur']) > 0.1:
-        augs.append(albu.OneOf([
-            albu.MotionBlur(p=.2),
-            albu.MedianBlur(blur_limit=3, p=0.1),
-            albu.Blur(blur_limit=3, p=0.1),
-        ], p=float(params['blur'])))
-
-    if float(params['distortion']) > 0.1:
-        augs.append(albu.OneOf([
-            albu.OpticalDistortion(p=0.3),
-            albu.GridDistortion(p=.1),
-            albu.IAAPiecewiseAffine(p=0.3),
-        ], p=float(params['distortion'])))
-
-    if float(params['color']) > 0.1:
-        augs.append(albu.OneOf([
-            albu.CLAHE(clip_limit=2),
-            albu.IAASharpen(),
-            albu.IAAEmboss(),
-            albu.RandomBrightnessContrast(),
-        ], p=float(params['color'])))
-
-
-    transform_train = albu.Compose([
-        albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
-        albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
-        albu.Compose(augs, p=float(params['aug_global_prob'])),
-        ])
+    transform_train = transforms.Compose([
+        # transforms.Resize((opt.MODEL.IMAGE_SIZE)), # smaller edge
+        transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+        transforms.RandomHorizontalFlip(),
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2),
+        # transforms.RandomAffine(degrees=20, scale=(0.8, 1.2), shear=10, resample=PIL.Image.BILINEAR),
+        # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+    ])
 
     if opt.TEST.NUM_TTAS > 1:
-        transform_test = albu.Compose([
-            albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
-            albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
-            albu.HorizontalFlip(),
+        transform_test = transforms.Compose([
+            transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+            transforms.RandomHorizontalFlip(),
         ])
     else:
-        transform_test = albu.Compose([
-            albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
-            albu.CenterCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+        transform_test = transforms.Compose([
+            transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
         ])
-
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
                             num_classes=opt.MODEL.NUM_CLASSES, resize=False,
@@ -223,34 +171,32 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
 
     return train_loader, val_loader, test_loader
 
-def create_model(predict_only: bool, dropout: float) -> Any:
+def create_model(predict_only: bool) -> Any:
     logger.info(f'creating a model {opt.MODEL.ARCH}')
 
-    model = get_model(opt.MODEL.ARCH, pretrained=not predict_only)
+    logger.info("using model '{}'".format(opt.MODEL.ARCH ))
 
-    model.features[-1] = nn.AdaptiveAvgPool2d(1)
-
-    if opt.MODEL.ARCH == 'pnasnet5large':
-        if dropout < 0.1:
-            model.output = nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES)
-        else:
-            model.output = nn.Sequential(
-                 nn.Dropout(dropout),
-                 nn.Linear(model.output[-1].in_features, opt.MODEL.NUM_CLASSES))
+    if opt.MODEL.ARCH in models.__dict__:
+        model = models.__dict__[opt.MODEL.ARCH](pretrained=not predict_only)
     else:
-        if dropout < 0.1:
-            model.output = nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES)
-        else:
-            model.output = nn.Sequential(
-                 nn.Dropout(dropout),
-                 nn.Linear(model.output.in_features, opt.MODEL.NUM_CLASSES))
+        model = senet.__dict__[opt.MODEL.ARCH](pretrained=None)
+
+    assert(opt.MODEL.INPUT_SIZE % 32 == 0)
+
+    if opt.MODEL.ARCH.startswith('resnet'):
+        model.avgpool = nn.AdaptiveAvgPool2d(opt.MODEL.POOL_SIZE)
+        model.fc = nn.Linear(model.fc.in_features, opt.MODEL.NUM_CLASSES)
+    else:
+        model.avg_pool = nn.AdaptiveAvgPool2d(opt.MODEL.POOL_SIZE)
+        model.last_linear = nn.Linear(model.last_linear.in_features, opt.MODEL.NUM_CLASSES)
 
     model = torch.nn.DataParallel(model).cuda()
     model.cuda()
+
     return model
 
-def save_checkpoint(state: Dict[str, Any], filename: str, model_dir: str) -> None:
-    torch.save(state, os.path.join(model_dir, filename))
+def save_checkpoint(state: Dict[str, Any], filename: str) -> None:
+    torch.save(state, os.path.join(opt.EXPERIMENT.DIR, filename))
     logger.info(f'A snapshot was saved to {filename}')
 
 def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
@@ -262,8 +208,8 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
 
     model.train()
 
-    num_steps = min(len(train_loader), opt.TRAIN.STEPS_PER_EPOCH)
     print('total batches:', len(train_loader))
+    num_steps = min(len(train_loader), opt.TRAIN.STEPS_PER_EPOCH)
 
     end = time.time()
     for i, (input_, target) in enumerate(train_loader):
@@ -354,8 +300,9 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.
     return best_score, best_thresh, predicts.numpy()
 
 def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
-                   model_path: Any) -> np.ndarray:
-    score, threshold, predicts = validate(val_loader, model, epoch)
+                   model_path: Any, threshold: float = 0) -> np.ndarray:
+    if threshold == 0 or args.dataset == 'train':
+        score, threshold, predicts = validate(val_loader, model, epoch)
 
     if args.dataset == 'test':
         predicts, _ = inference(test_loader, model)
@@ -397,15 +344,32 @@ def unfreeze_layers(model: Any) -> None:
             param.requires_grad = True
 
 
-def train_model(params: Dict[str, Any]) -> float:
+if __name__ == '__main__':
     np.random.seed(0)
-    model_dir = opt.EXPERIMENT_DIR
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--weights', help='model to resume training', type=str)
+    parser.add_argument('--fold', help='fold number', type=int, default=0)
+    parser.add_argument('--gen_predict', help='make prediction', action='store_true')
+    parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
+    parser.add_argument('--dataset', help='dataset for prediction, train/test',
+                        type=str, default='test')
+    parser.add_argument('--threshold', help='threshold to use', type=float, default=0)
+    args = parser.parse_args()
+
+    opt.EXPERIMENT.DIR = os.path.join(opt.EXPERIMENT.DIR, f'fold_{args.fold}')
+    opt.TEST.NUM_TTAS = args.num_tta
+
+    if not os.path.exists(opt.EXPERIMENT.DIR):
+        os.makedirs(opt.EXPERIMENT.DIR)
+
+    log_file = os.path.join(opt.EXPERIMENT.DIR, f'log_training.txt')
+    logger = create_logger(log_file)
     logger.info('=' * 50)
-    logger.info(f'hyperparameters: {params}')
 
-    train_loader, val_loader, test_loader = load_data(args.fold, params)
-    model = create_model(args.gen_predict, float(params['dropout']))
+    #print("available models:", pretrainedmodels.model_names)
+    train_loader, val_loader, test_loader = load_data(args.fold)
+    model = create_model(args.gen_predict)
     # freeze_layers(model)
 
     # if torch.cuda.device_count() == 1:
@@ -441,13 +405,13 @@ def train_model(params: Dict[str, Any]) -> float:
         logger.info(f'checkpoint {args.weights} was loaded.')
 
         last_epoch = last_checkpoint['epoch']
-        logger.info(f'loaded the model from epoch {last_epoch}')
+        logger.info(f'loaded the model from epoch {last_checkpoint["epoch"]}')
         set_lr(optimizer, opt.TRAIN.LEARNING_RATE)
 
 
     if args.gen_predict:
         print('inference mode')
-        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
+        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights, args.threshold)
         sys.exit(0)
 
     if opt.TRAIN.LOSS == 'BCE':
@@ -468,7 +432,7 @@ def train_model(params: Dict[str, Any]) -> float:
             lr = read_lr(optimizer)
             if lr < last_lr - 1e-10 and best_model_path is not None:
                 # reload the best model
-                last_checkpoint = torch.load(os.path.join(model_dir, best_model_path))
+                last_checkpoint = torch.load(os.path.join(opt.EXPERIMENT.DIR, best_model_path))
                 assert(last_checkpoint['arch']==opt.MODEL.ARCH)
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
@@ -517,36 +481,6 @@ def train_model(params: Dict[str, Any]) -> float:
         filename = opt.MODEL.VERSION
         if is_best:
             best_model_path = f'{filename}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth'
-            save_checkpoint(data_to_save, best_model_path, model_dir)
+            save_checkpoint(data_to_save, best_model_path)
 
     logger.info(f'best score: {best_score:.04f}')
-    return -best_score
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', help='model to resume training', type=str)
-    parser.add_argument('--fold', help='fold number', type=int, default=0)
-    parser.add_argument('--gen_predict', help='make prediction', action='store_true')
-    parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
-    parser.add_argument('--dataset', help='dataset for prediction, train/test',
-                        type=str, default='test')
-    args = parser.parse_args()
-
-    params = {'affine': 'medium',
-              'aug_global_prob': 0.5346290229823514,
-              'blur': 0.1663552826866818,
-              'color': 0.112355821364934,
-              'distortion': 0.12486453027371469,
-              'dropout': 0.3,
-              'noise': 0.29392632695458587,
-              'rotate90': 0,
-              'vflip': 0}
-
-    opt.EXPERIMENT_DIR = os.path.join(opt.EXPERIMENT_DIR, f'fold_{args.fold}')
-    opt.TEST.NUM_TTAS = args.num_tta
-
-    if not os.path.exists(opt.EXPERIMENT_DIR):
-        os.makedirs(opt.EXPERIMENT_DIR)
-
-    logger = create_logger(os.path.join(opt.EXPERIMENT_DIR, 'log_training.txt'))
-    train_model(params)

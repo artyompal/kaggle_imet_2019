@@ -43,7 +43,7 @@ opt = edict()
 opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 opt.MODEL = edict()
-opt.MODEL.ARCH = 'seresnext101_32x4d'
+opt.MODEL.ARCH = 'cbam_resnet50'
 # opt.MODEL.IMAGE_SIZE = 256
 opt.MODEL.INPUT_SIZE = 288 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
@@ -54,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 20 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 32 * torch.cuda.device_count()
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -63,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 30
+opt.TRAIN.EPOCHS = 50
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -350,8 +350,9 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.
     return best_score, best_thresh, predicts.numpy()
 
 def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
-                   model_path: Any) -> np.ndarray:
-    score, threshold, predicts = validate(val_loader, model, epoch)
+                   model_path: Any, threshold: float = 0) -> np.ndarray:
+    if threshold == 0 or args.dataset == 'train':
+        score, threshold, predicts = validate(val_loader, model, epoch)
 
     if args.dataset == 'test':
         predicts, _ = inference(test_loader, model)
@@ -443,7 +444,7 @@ def train_model(params: Dict[str, Any]) -> float:
 
     if args.gen_predict:
         print('inference mode')
-        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
+        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights, args.threshold)
         sys.exit(0)
 
     if opt.TRAIN.LOSS == 'BCE':
@@ -526,15 +527,16 @@ if __name__ == '__main__':
     parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
     parser.add_argument('--dataset', help='dataset for prediction, train/test',
                         type=str, default='test')
+    parser.add_argument('--threshold', help='threshold to use', type=float, default=0)
     args = parser.parse_args()
 
     params = {'affine': 'medium',
-              'aug_global_prob': 0.5346290229823514,
-              'blur': 0.1663552826866818,
-              'color': 0.112355821364934,
-              'distortion': 0.12486453027371469,
-              'dropout': 0.3,
-              'noise': 0.29392632695458587,
+              'aug_global_prob': 0.8284255002193084,
+              'blur': 0.022971338193944046,
+              'color': 0.13309874988172912,
+              'distortion': 0.0605476772939619,
+              'dropout': 0,
+              'noise': 0.011019165711006956,
               'rotate90': 0,
               'vflip': 0}
 

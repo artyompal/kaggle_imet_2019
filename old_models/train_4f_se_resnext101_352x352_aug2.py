@@ -21,7 +21,7 @@ import torchvision.models as models
 from sklearn.model_selection import KFold
 import PIL
 
-from data_loader_v1_single import Dataset
+from data_loader_v2_albu import Dataset
 from utils import create_logger, AverageMeter, F_score
 from debug import dprint, assert_eq, assert_ne
 from cosine_scheduler import CosineLRWithRestarts
@@ -36,6 +36,7 @@ if not IN_KERNEL:
 else:
     from model_provider import get_model
 
+import albumentations as albu
 from easydict import EasyDict as edict # type: ignore
 
 opt = edict()
@@ -44,7 +45,7 @@ opt.INPUT = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 opt.MODEL = edict()
 opt.MODEL.ARCH = 'seresnext101_32x4d'
 # opt.MODEL.IMAGE_SIZE = 256
-opt.MODEL.INPUT_SIZE = 288 # crop size
+opt.MODEL.INPUT_SIZE = 352 # crop size
 opt.MODEL.VERSION = os.path.splitext(os.path.basename(__file__))[0][6:]
 opt.MODEL.DROPOUT = 0.5
 opt.MODEL.NUM_CLASSES = 1103
@@ -53,7 +54,7 @@ opt.EXPERIMENT_DIR = f'../models/{opt.MODEL.VERSION}'
 
 opt.TRAIN = edict()
 opt.TRAIN.NUM_FOLDS = 5
-opt.TRAIN.BATCH_SIZE = 20 * torch.cuda.device_count()
+opt.TRAIN.BATCH_SIZE = 16 * torch.cuda.device_count() if not IN_KERNEL else 32
 opt.TRAIN.LOSS = 'BCE'
 opt.TRAIN.SHUFFLE = True
 opt.TRAIN.WORKERS = min(12, multiprocessing.cpu_count())
@@ -62,7 +63,7 @@ opt.TRAIN.LEARNING_RATE = 1e-4
 opt.TRAIN.PATIENCE = 4
 opt.TRAIN.LR_REDUCE_FACTOR = 0.2
 opt.TRAIN.MIN_LR = 1e-7
-opt.TRAIN.EPOCHS = 30
+opt.TRAIN.EPOCHS = 70
 opt.TRAIN.STEPS_PER_EPOCH = 30000
 opt.TRAIN.PATH = opt.INPUT + 'train'
 opt.TRAIN.FOLDS_FILE = 'folds.npy'
@@ -125,24 +126,76 @@ def load_data(fold: int, params: Dict[str, Any]) -> Any:
     print('train_df', train_df.shape, 'val_df', val_df.shape)
     test_df = pd.read_csv(opt.TEST.CSV)
 
-    transform_train = transforms.Compose([
-        # transforms.Resize((opt.MODEL.IMAGE_SIZE)), # smaller edge
-        transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-        transforms.RandomHorizontalFlip(),
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2),
-        # transforms.RandomAffine(degrees=20, scale=(0.8, 1.2), shear=10, resample=PIL.Image.BILINEAR),
-        # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-    ])
+    # transform_train = transforms.Compose([
+    #     # transforms.Resize((opt.MODEL.IMAGE_SIZE)), # smaller edge
+    #     transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+    #     transforms.RandomHorizontalFlip(),
+    #     # transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    #     # transforms.RandomAffine(degrees=20, scale=(0.8, 1.2), shear=10, resample=PIL.Image.BILINEAR),
+    #     # transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
+    # ])
+
+    augs = []
+    augs.append(albu.HorizontalFlip(.5))
+    if int(params['vflip']):
+        augs.append(albu.VerticalFlip(.5))
+    if int(params['rotate90']):
+        augs.append(albu.RandomRotate90())
+
+    if params['affine'] == 'soft':
+        augs.append(albu.ShiftScaleRotate(shift_limit=0.075, scale_limit=0.15, rotate_limit=10, p=.75))
+    elif params['affine'] == 'medium':
+        augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.2))
+    elif params['affine'] == 'hard':
+        augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.50, rotate_limit=45, p=.75))
+
+    if float(params['noise']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.IAAAdditiveGaussianNoise(),
+            albu.GaussNoise(),
+        ], p=float(params['noise'])))
+
+    if float(params['blur']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.MotionBlur(p=.2),
+            albu.MedianBlur(blur_limit=3, p=0.1),
+            albu.Blur(blur_limit=3, p=0.1),
+        ], p=float(params['blur'])))
+
+    if float(params['distortion']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.OpticalDistortion(p=0.3),
+            albu.GridDistortion(p=.1),
+            albu.IAAPiecewiseAffine(p=0.3),
+        ], p=float(params['distortion'])))
+
+    if float(params['color']) > 0.1:
+        augs.append(albu.OneOf([
+            albu.CLAHE(clip_limit=2),
+            albu.IAASharpen(),
+            albu.IAAEmboss(),
+            albu.RandomBrightnessContrast(),
+        ], p=float(params['color'])))
+
+
+    transform_train = albu.Compose([
+        albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
+        albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+        albu.Compose(augs, p=float(params['aug_global_prob'])),
+        ])
 
     if opt.TEST.NUM_TTAS > 1:
-        transform_test = transforms.Compose([
-            transforms.RandomCrop(opt.MODEL.INPUT_SIZE),
-            transforms.RandomHorizontalFlip(),
+        transform_test = albu.Compose([
+            albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
+            albu.RandomCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
+            albu.HorizontalFlip(),
         ])
     else:
-        transform_test = transforms.Compose([
-            transforms.CenterCrop(opt.MODEL.INPUT_SIZE),
+        transform_test = albu.Compose([
+            albu.PadIfNeeded(opt.MODEL.INPUT_SIZE, opt.MODEL.INPUT_SIZE),
+            albu.CenterCrop(height=opt.MODEL.INPUT_SIZE, width=opt.MODEL.INPUT_SIZE),
         ])
+
 
     train_dataset = Dataset(train_df, path=opt.TRAIN.PATH, mode='train',
                             num_classes=opt.MODEL.NUM_CLASSES, resize=False,
@@ -301,8 +354,9 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.
     return best_score, best_thresh, predicts.numpy()
 
 def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
-                   model_path: Any) -> np.ndarray:
-    score, threshold, predicts = validate(val_loader, model, epoch)
+                   model_path: Any, threshold: float = 0) -> np.ndarray:
+    if threshold == 0 or args.dataset == 'train':
+        score, threshold, predicts = validate(val_loader, model, epoch)
 
     if args.dataset == 'test':
         predicts, _ = inference(test_loader, model)
@@ -394,7 +448,7 @@ def train_model(params: Dict[str, Any]) -> float:
 
     if args.gen_predict:
         print('inference mode')
-        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
+        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights, args.threshold)
         sys.exit(0)
 
     if opt.TRAIN.LOSS == 'BCE':
@@ -477,9 +531,18 @@ if __name__ == '__main__':
     parser.add_argument('--num_tta', help='number of TTAs', type=int, default=opt.TEST.NUM_TTAS)
     parser.add_argument('--dataset', help='dataset for prediction, train/test',
                         type=str, default='test')
+    parser.add_argument('--threshold', help='threshold to use', type=float, default=0)
     args = parser.parse_args()
 
-    params = {'dropout': 0.3}
+    params = {'affine': 'medium',
+              'aug_global_prob': 1.0,
+              'blur': 0.3,
+              'color': 0,
+              'distortion': 0.2,
+              'dropout': 0.3,
+              'noise': 0.3,
+              'rotate90': 0,
+              'vflip': 0}
 
     opt.EXPERIMENT_DIR = os.path.join(opt.EXPERIMENT_DIR, f'fold_{args.fold}')
     opt.TEST.NUM_TTAS = args.num_tta
