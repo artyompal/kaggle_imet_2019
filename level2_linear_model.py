@@ -47,23 +47,49 @@ if __name__ == '__main__':
         dprint(model_name)
         print(np.array(models[model_name]))
 
-    # train_predicts = list(map(np.load, train_pred_fnames))
+    # load labels
+    fold_num = np.load('folds.npy')
+    train_df = pd.read_csv('../input/train.csv')
+    num_classes = pd.read_csv('../input/labels.csv').shape[0]
+
+    def parse_labels(s: str) -> np.array:
+        res = np.zeros(num_classes)
+        res[list(map(int, s.split()))] = 1
+        return res
+
+    labels = np.vstack(list(map(parse_labels, train_df.attribute_ids)))
+    dprint(fold_num.shape)
+    dprint(labels.shape)
 
     # search for the best blend weights
-    weights = np.array([1.5, 1, 1.2])
-    weights /= sum(weights)
+    NUM_ATTEMPTS = 1000
+    best_weights = np.array([1.5, 1, 1.2])
+    best_score = 0.0
 
-    # # get test predictions
-    # test_predicts = list(map(lambda s: s.replace('level1_train_', 'level1_test_'),
-    #                          train_pred_fnames))
-    # print('test_predicts')
-    # print(np.array(test_predicts))
+    for _ in range(NUM_ATTEMPTS):
+        print('-' * 50)
+        weights = np.random.rand(len(models))
+
+        for predicts, w in zip(models.values(), best_weights):
+            for fold, predict in enumerate(predicts):
+                print(f'reading {predict}, weight={w}')
+                if fold == 0:
+                    result = np.load(predict) * w
+                else:
+                    result += np.load(predict) * w
+
+        score = F_score(result, labels[fold_num == fold], beta=2, threshold=0)
+        dprint(score)
+        dprint(weights)
+
+        if score > best_score:
+            best_score, best_weights = score, weights
 
     # generate submission
     sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
     result = np.zeros((sub.shape[0], 1103))
 
-    for predicts, w in zip(models.values(), weights):
+    for predicts, w in zip(models.values(), best_weights):
         for predict in predicts:
             test_predict = predict.replace('level1_train_', 'level1_test_')
             print(f'reading {test_predict}, weight={w}')
@@ -78,6 +104,6 @@ if __name__ == '__main__':
     print(np.array(labels))
 
     sub['attribute_ids'] = labels
-    weights_str = '_'.join(map(lambda w: f'{w:.3}', weights))
+    weights_str = '_'.join(map(lambda w: f'{w:.3}', best_weights))
     result_name = os.path.splitext(result_name)[0]
     sub.to_csv(f'{result_name}_{weights_str}.csv', index=False)

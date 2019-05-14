@@ -3,15 +3,25 @@
 import torch
 from debug import dprint
 
-def F_score(predict: torch.Tensor, label: torch.Tensor, beta: int,
+def F_score(predict: torch.Tensor, labels: torch.Tensor, beta: int,
             threshold: float = 0.5) -> float:
-    predict = predict > threshold
-    label = label > threshold
+    if not isinstance(predict, torch.Tensor):
+        predict = torch.tensor(predict)
+    if not isinstance(labels, torch.Tensor):
+        labels = torch.tensor(labels)
 
-    TP = (predict & label).sum(1).float()
-    TN = ((~predict) & (~label)).sum(1).float()
-    FP = (predict & (~label)).sum(1).float()
-    FN = ((~predict) & label).sum(1).float()
+    if predict.shape != labels.shape:
+        dprint(predict.shape)
+        dprint(labels.shape)
+        assert False
+
+    predict = predict > threshold
+    labels = labels > threshold
+
+    TP = (predict & labels).sum(1).float()
+    TN = ((~predict) & (~labels)).sum(1).float()
+    FP = (predict & (~labels)).sum(1).float()
+    FN = ((~predict) & labels).sum(1).float()
 
     precision = TP / (TP + FP + 1e-12)
     recall = TP / (TP + FN + 1e-12)
