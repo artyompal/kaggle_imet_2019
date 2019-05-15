@@ -1,7 +1,6 @@
 
 model:
     arch: 'seresnext101_32x4d'
-    image_size: 352
     input_size: 352
     num_classes: 1103
     dropout: 0.3
@@ -12,9 +11,6 @@ train:
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
 
-val:
-    batch_size: 32
-
 test:
     csv: '../input/sample_submission.csv'
     batch_size: 32
@@ -22,12 +18,16 @@ test:
 
 optimizer:
     name: 'adam'
+    params:
+        lr: 1e-4
 
 scheduler:
     name: 'reduce_lr_on_plateau'
     params:
         factor: 0.2
         patience: 4
+        min_lr: 3e-7
+        threshold: 1e-3
 
 loss:
     name: 'binary_cross_entropy'

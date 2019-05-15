@@ -2,12 +2,15 @@
 
 import multiprocessing
 import os
+import re
 import yaml
 
-from typing import Any
-
 import torch
+
+from typing import Any
 from easydict import EasyDict as edict
+
+from debug import dprint
 
 
 def _get_default_config(filename: str, args: Any) -> edict:
@@ -25,16 +28,16 @@ def _get_default_config(filename: str, args: Any) -> edict:
 
     cfg.model = edict()
     cfg.model.arch = 'resnet50'
-    cfg.model.image_size = 256
-    cfg.model.input_size = 224
+    cfg.model.image_size = 0
+    cfg.model.input_size = 0
     cfg.model.num_classes = None
+    cfg.model.num_folds = 5
     cfg.model.bottleneck_fc = None
     cfg.model.dropout = 0
 
     cfg.train = edict()
     cfg.train.batch_size = 32 * torch.cuda.device_count()
     cfg.train.num_epochs = 1000
-    cfg.train.num_folds = 5
     cfg.train.shuffle = True
     cfg.train.images_per_class = None
     cfg.train.max_steps_per_epoch = None
@@ -44,7 +47,6 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.use_balancing_sampler = False
 
     cfg.val = edict()
-    cfg.val.batch_size = 64 * torch.cuda.device_count()
     cfg.val.images_per_class = None
 
     cfg.test = edict()
@@ -98,8 +100,20 @@ def _merge_config(src: edict, dst: edict) -> edict:
             dst[k] = v
 
 def load(config_path: str, args: Any) -> edict:
+    loader = yaml.SafeLoader
+    loader.add_implicit_resolver(
+        u'tag:yaml.org,2002:float',
+        re.compile(u'''^(?:
+         [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+        |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+        |\\.[0-9_]+(?:[eE][-+][0-9]+)?
+        |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
+        |[-+]?\\.(?:inf|Inf|INF)
+        |\\.(?:nan|NaN|NAN))$''', re.X),
+        list(u'-+0123456789.'))
+
     with open(config_path) as f:
-        yaml_config = edict(yaml.load(f, Loader=yaml.SafeLoader))
+        yaml_config = edict(yaml.load(f, Loader=loader))
 
     config = _get_default_config(config_path, args)
     _merge_config(yaml_config, config)

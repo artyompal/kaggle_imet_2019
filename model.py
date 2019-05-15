@@ -55,7 +55,7 @@ def make_folds(df: pd.DataFrame) -> pd.DataFrame:
     for item in tqdm(df.sample(frac=1, random_state=42).itertuples(),
                      total=len(df), disable=IN_KERNEL):
         cls = min(item.attribute_ids.split(), key=lambda cls: cls_counts[cls])
-        fold_counts = [(f, fold_cls_counts[f, cls]) for f in range(config.train.num_folds)]
+        fold_counts = [(f, fold_cls_counts[f, cls]) for f in range(config.model.num_folds)]
         min_count = min([count for _, count in fold_counts])
         random.seed(item.Index)
         fold = random.choice([f for f, count in fold_counts
@@ -164,8 +164,8 @@ def load_data(fold: int) -> Any:
 
     val_dataset = ImageDataset(val_df, path=config.data.train_dir, mode='val',
                           num_classes=config.model.num_classes, resize=False,
-                          num_tta=1,
-                          augmentor=transform_test)
+                          num_tta=1, augmentor=transform_test)
+
     test_dataset = ImageDataset(test_df, path=config.data.test_dir, mode='test',
                            num_classes=config.model.num_classes, resize=False,
                            num_tta=config.test.num_ttas,
@@ -173,13 +173,15 @@ def load_data(fold: int) -> Any:
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=config.train.batch_size, shuffle=True,
-        num_workers=config.num_workers)
+        num_workers=config.num_workers, drop_last=True)
 
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=config.train.batch_size, shuffle=False, num_workers=config.num_workers)
+        val_dataset, batch_size=config.test.batch_size, shuffle=False,
+        num_workers=config.num_workers)
 
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=config.train.batch_size, shuffle=False, num_workers=config.num_workers)
+        test_dataset, batch_size=config.test.batch_size, shuffle=False,
+        num_workers=config.num_workers)
 
     return train_loader, val_loader, test_loader
 
@@ -219,7 +221,9 @@ def save_checkpoint(state: Dict[str, Any], filename: str, model_dir: str) -> Non
 
 def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
           epoch: int, lr_scheduler: Any, lr_scheduler2: Any) -> None:
-    logger.info(f'epoch {epoch}')
+    logger.info(f'epoch: {epoch}')
+    logger.info(f'learning rate: {get_lr(optimizer)}')
+
     batch_time = AverageMeter()
     losses = AverageMeter()
     avg_score = AverageMeter()
@@ -239,15 +243,12 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
         if i >= num_steps:
             break
 
-        # compute output
         output = model(input_.cuda())
         loss = criterion(output, target.cuda())
 
-        # get metric
         predict = (output.detach() > 0.5).type(torch.FloatTensor)
         avg_score.update(F_score(predict, target, beta=2))
 
-        # compute gradient and do SGD step
         losses.update(loss.data.item(), input_.size(0))
         optimizer.zero_grad()
         loss.backward()
@@ -261,7 +262,6 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
             lr_scheduler2.step()
             lr_str = f'\tlr {get_lr(optimizer):.08f}'
 
-        # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
