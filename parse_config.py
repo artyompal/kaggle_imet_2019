@@ -23,7 +23,6 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.data = edict()
     cfg.data.train_dir = '../input/train/'
     cfg.data.test_dir = '../input/test/'
-    cfg.data.train_filename = None
     cfg.data.params = edict()
 
     cfg.model = edict()
