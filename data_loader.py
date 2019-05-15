@@ -1,27 +1,31 @@
 ''' Data loaders for training & validation. '''
 
-import math, os, pickle
+import math
+import os
+import pickle
+
 from collections import defaultdict
 from glob import glob
 from typing import *
 
-import numpy as np, pandas as pd
+import numpy as np
+import pandas as pd
 import torch
-import torch.utils.data as data
+import torch.utils.data
 import torchvision.transforms as transforms
+
 from PIL import Image
 
-from debug import dprint
-
 SAVE_DEBUG_IMAGES = False
-VERSION = os.path.basename(__file__)[12:-3]
+VERSION = os.path.splitext(os.path.basename(__file__))[0]
 
 
-class Dataset(data.Dataset):
-    def __init__(self, dataframe: pd.DataFrame, path: str, mode: str, num_classes: int,
-                 image_size: int = 0, oversample: int = 1, augmentor: Any = None,
-                 resize: bool = True, num_tta: int = 1, inception: bool = False) -> None:
-        print(f'creating data loader {VERSION} in mode={mode}')
+class ImageDataset(torch.utils.data.Dataset):
+    def __init__(self, dataframe: pd.DataFrame, path: str, mode: str,
+                 num_classes: int, image_size: int = 0, resize: bool = True,
+                 augmentor: Any = None, aug_type: str = 'albu',
+                 num_tta: int = 1, inception: bool = False) -> None:
+        print(f'creating {VERSION} in mode={mode}')
         assert mode in ['train', 'val', 'test']
         assert mode != 'train' or num_tta == 1
 
@@ -30,10 +34,10 @@ class Dataset(data.Dataset):
         self.mode = mode
         self.num_classes = num_classes
         self.image_size = image_size
-        self.augmentor = augmentor
         self.resize = resize
+        self.augmentor = augmentor
+        self.aug_type = aug_type
         self.num_tta = num_tta
-
 
         if not inception:
             self.transforms = transforms.Compose([
@@ -48,11 +52,14 @@ class Dataset(data.Dataset):
                                       std=[0.5, 0.5, 0.5])
             ])
 
-    def _transform_image(self, image: Image, index: int) -> torch.tensor:
+    def _transform_image(self, image: Image, index: int) -> torch.Tensor:
         image = np.array(image)
 
         if self.augmentor is not None:
-            image = self.augmentor(image=image)['image']
+            if self.aug_type == 'albu':
+                image = self.augmentor(image=image)['image']
+            elif self.aug_type == 'imgaug':
+                image = self.augmentor.augment_image(image)
 
         if SAVE_DEBUG_IMAGES:
             os.makedirs(f'../debug_images_{VERSION}/', exist_ok=True)
@@ -74,19 +81,13 @@ class Dataset(data.Dataset):
         else:
             image = torch.stack([self._transform_image(image, index) for _ in range(self.num_tta)])
 
-        # print(image.size())
-        targets = np.zeros(self.num_classes, dtype=np.float32)
-
         if self.mode != 'test':
+            targets = np.zeros(self.num_classes, dtype=np.float32)
             labels = list(map(int, self.df.iloc[index, 1].split()))
             targets[labels] = 1
-
-        return image, targets
+            return image, targets
+        else:
+            return image
 
     def __len__(self) -> int:
-        count = self.df.shape[0]
-
-        if self.mode == 'train':
-            count -= count % 32
-
-        return count
+        return self.df.shape[0]

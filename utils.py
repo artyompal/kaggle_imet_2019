@@ -33,7 +33,7 @@ def create_logger(filename: Optional[str], onscreen: bool = True) -> Any:
 
     return logger
 
-class AverageMeter(object):
+class AverageMeter:
     """Computes and stores the average and current value"""
     def __init__(self) -> None:
         self.reset()
@@ -50,18 +50,3 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-
-def F_score(predict: torch.tensor, label: torch.tensor, threshold: float = 0.5,
-            beta: int = 2) -> float:
-    predict = predict > threshold
-    label = label > threshold
-
-    TP = (predict & label).sum(1).float()
-    TN = ((~predict) & (~label)).sum(1).float()
-    FP = (predict & (~label)).sum(1).float()
-    FN = ((~predict) & label).sum(1).float()
-
-    precision = TP / (TP + FP + 1e-12)
-    recall = TP / (TP + FN + 1e-12)
-    F2 = (1 + beta**2) * precision * recall / (beta**2 * precision + recall + 1e-12)
-    return F2.mean(0)
