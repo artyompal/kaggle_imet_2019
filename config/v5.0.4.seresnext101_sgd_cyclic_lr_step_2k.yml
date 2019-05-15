@@ -23,8 +23,8 @@ scheduler:
     name: 'cyclic_lr'
     params:
         max_lr: 0.003
-        base_lr: 0.0005
-        step_size_up: 4000
+        base_lr: 0.0003
+        step_size_up: 2000
 
 loss:
     name: 'binary_cross_entropy'
