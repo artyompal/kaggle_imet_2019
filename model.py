@@ -32,7 +32,7 @@ from utils import create_logger, AverageMeter
 from debug import dprint
 
 from losses import get_loss
-from schedulers import get_scheduler, is_scheduler_continuous
+from schedulers import get_scheduler, is_scheduler_continuous, get_warmup_scheduler
 from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
@@ -215,8 +215,9 @@ def save_checkpoint(state: Dict[str, Any], filename: str, model_dir: str) -> Non
     torch.save(state, os.path.join(model_dir, filename))
     logger.info(f'A snapshot was saved to {filename}')
 
-def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
-          epoch: int, lr_scheduler: Any, lr_scheduler2: Any) -> None:
+def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
+                epoch: int, lr_scheduler: Any, lr_scheduler2: Any,
+                max_steps: Optional[int]) -> None:
     logger.info(f'epoch: {epoch}')
     logger.info(f'learning rate: {get_lr(optimizer)}')
 
@@ -227,11 +228,10 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
     model.train()
 
     num_steps = len(train_loader)
-    if config.train.max_steps_per_epoch is not None:
-        num_steps = min(len(train_loader), config.train.max_steps_per_epoch)
+    if max_steps is not None:
+        num_steps = min(len(train_loader), max_steps)
 
     logger.info(f'total batches: {num_steps}')
-
     end = time.time()
     lr_str = ''
 
@@ -250,11 +250,11 @@ def train(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
         loss.backward()
         optimizer.step()
 
-        if is_scheduler_continuous(config.scheduler.name):
+        if is_scheduler_continuous(lr_scheduler):
             lr_scheduler.step()
             lr_str = f'\tlr {get_lr(optimizer):.08f}'
 
-        if is_scheduler_continuous(config.scheduler2.name):
+        if is_scheduler_continuous(lr_scheduler2):
             lr_scheduler2.step()
             lr_str = f'\tlr {get_lr(optimizer):.08f}'
 
@@ -338,6 +338,22 @@ def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
     filename = f'level1_{name}_{os.path.splitext(os.path.basename(model_path))[0]}'
     np.save(filename, predicts)
 
+def freeze_layers(model: Any) -> None:
+    ''' Freezes all layers but the last one. '''
+    m = model.module
+    for layer in m.children():
+        for param in layer.parameters():
+            param.requires_grad = False
+
+    for layer in model.module.output.children():
+        for param in layer.parameters():
+            param.requires_grad = True
+
+def unfreeze_layers(model: Any) -> None:
+    for layer in model.module.children():
+        for param in layer.parameters():
+            param.requires_grad = True
+
 def run() -> float:
     np.random.seed(0)
     model_dir = config.experiment_dir
@@ -346,11 +362,34 @@ def run() -> float:
 
     train_loader, val_loader, test_loader = load_data(args.fold)
     model = create_model(args.gen_predict)
+    criterion = get_loss(config)
+
+    if args.weights is None and config.train.head_only_warmup:
+        logger.info('-' * 50)
+        logger.info(f'doing warmup for {config.train.warmup.steps} steps')
+        logger.info(f'max_lr will be {config.train.warmup.max_lr}')
+
+        optimizer = get_optimizer(config, model.parameters())
+        warmup_scheduler = get_warmup_scheduler(config, optimizer)
+
+        freeze_layers(model)
+        train_epoch(train_loader, model, criterion, optimizer, 0,
+                    warmup_scheduler, None, config.train.warmup.steps)
+        unfreeze_layers(model)
+
+    if args.weights is None and config.train.enable_warmup:
+        logger.info('-' * 50)
+        logger.info(f'doing warmup for {config.train.warmup.steps} steps')
+        logger.info(f'max_lr will be {config.train.warmup.max_lr}')
+
+        optimizer = get_optimizer(config, model.parameters())
+        warmup_scheduler = get_warmup_scheduler(config, optimizer)
+        train_epoch(train_loader, model, criterion, optimizer, 0,
+                    warmup_scheduler, None, config.train.warmup.steps)
 
     optimizer = get_optimizer(config, model.parameters())
     lr_scheduler = get_scheduler(config, optimizer)
     lr_scheduler2 = get_scheduler(config, optimizer) if config.scheduler2.name else None
-    criterion = get_loss(config)
 
     if args.weights is None:
         last_epoch = 0
@@ -385,26 +424,27 @@ def run() -> float:
     for epoch in range(last_epoch + 1, config.train.num_epochs + 1):
         logger.info('-' * 50)
 
-        # if not is_scheduler_continuous(config.scheduler.name):
-        #     # if we have just reduced LR, reload the best saved model
-        #     lr = get_lr(optimizer)
-        #     logger.info(f'learning rate {lr}')
-        #
-        #     if lr < last_lr - 1e-10 and best_model_path is not None:
-        #         last_checkpoint = torch.load(os.path.join(model_dir, best_model_path))
-        #         assert(last_checkpoint['arch']==config.model.arch)
-        #         model.load_state_dict(last_checkpoint['state_dict'])
-        #         optimizer.load_state_dict(last_checkpoint['optimizer'])
-        #         logger.info(f'checkpoint {best_model_path} was loaded.')
-        #         set_lr(optimizer, lr)
-        #         last_lr = lr
-        #
-        #     if lr < config.train.min_lr * 1.01:
-        #         logger.info('reached minimum LR, stopping')
-        #         break
+        # FIXME: this code doesn't support second LR scheduler
+        if not is_scheduler_continuous(lr_scheduler):
+            # if we have just reduced LR, reload the best saved model
+            lr = get_lr(optimizer)
 
-        train(train_loader, model, criterion, optimizer, epoch, lr_scheduler,
-              lr_scheduler2)
+            if lr < last_lr - 1e-10 and best_model_path is not None:
+                logger.info(f'learning rate dropped: {lr}, reloading')
+                last_checkpoint = torch.load(os.path.join(model_dir, best_model_path))
+                assert(last_checkpoint['arch']==config.model.arch)
+                model.load_state_dict(last_checkpoint['state_dict'])
+                optimizer.load_state_dict(last_checkpoint['optimizer'])
+                logger.info(f'checkpoint {best_model_path} was loaded.')
+                set_lr(optimizer, lr)
+                last_lr = lr
+
+            if lr < config.train.min_lr * 1.01:
+                logger.info('reached minimum LR, stopping')
+                break
+
+        train_epoch(train_loader, model, criterion, optimizer, epoch,
+                    lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
         score, _, _ = validate(val_loader, model, epoch)
 
         if not is_scheduler_continuous(config.scheduler.name):

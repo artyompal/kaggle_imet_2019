@@ -44,6 +44,11 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.min_lr = 3e-7
     cfg.train.lr_scheduler = None
     cfg.train.use_balancing_sampler = False
+    cfg.train.enable_warmup = False
+    cfg.train.head_only_warmup = False
+    cfg.train.warmup = edict()
+    cfg.train.warmup.steps = None
+    cfg.train.warmup.max_lr = None
 
     cfg.val = edict()
     cfg.val.images_per_class = None
