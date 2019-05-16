@@ -37,7 +37,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.num_classes = config.model.num_classes
         self.input_size = config.model.input_size
         self.rect_crop = config.data.rect_crop
-        self.num_tta = config.test.num_ttas if mode != 'train' else 1
+        self.num_tta = config.test.num_ttas if mode == 'test' else 1
 
         if 'ception' in config.model.arch:
             self.transforms = transforms.Compose([
