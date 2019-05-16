@@ -1,0 +1,47 @@
+
+model:
+    arch: 'seresnext101_32x4d'
+    input_size: 320
+    num_classes: 1103
+    dropout: 0.3
+
+data:
+    rect_crop:
+        enable: true
+        min_ratio: 0.3
+        max_ratio: 1.0
+        scale_both_dims: true
+
+train:
+    csv: '../input/train.csv'
+    batch_size: 16
+    folds_file: 'folds.npy'
+    max_steps_per_epoch: 15000
+
+test:
+    csv: '../input/sample_submission.csv'
+    batch_size: 32
+    num_ttas: 2
+
+optimizer:
+    name: 'adam'
+    params:
+        lr: 1e-4
+
+scheduler:
+    name: 'reduce_lr_on_plateau'
+    params:
+        factor: 0.2
+        patience: 4
+        min_lr: 3e-7
+        threshold: 1e-3
+
+loss:
+    name: 'binary_cross_entropy'
+
+augmentations:
+    hflip: true
+    blur: 0.3
+    distortion: 0.2
+    dropout: 0.3
+    noise: 0.3

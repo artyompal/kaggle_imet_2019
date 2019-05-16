@@ -1,0 +1,37 @@
+
+model:
+    arch: 'seresnext101_32x4d'
+    input_size: 352
+    num_classes: 1103
+    dropout: 0.3
+
+train:
+    csv: '../input/train.csv'
+    batch_size: 16
+    folds_file: 'folds.npy'
+    max_steps_per_epoch: 15000
+
+test:
+    csv: '../input/sample_submission.csv'
+    batch_size: 32
+    num_ttas: 2
+
+optimizer:
+    name: 'sgd'
+
+scheduler:
+    name: 'cyclic_lr'
+    params:
+        max_lr: 0.3
+        base_lr: 0.03
+        step_size_up: 4000
+
+loss:
+    name: 'binary_cross_entropy'
+
+augmentations:
+    hflip: true
+    blur: 0.3
+    distortion: 0.2
+    dropout: 0.3
+    noise: 0.3
