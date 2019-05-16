@@ -158,18 +158,14 @@ def load_data(fold: int) -> Any:
         ])
 
 
-    train_dataset = ImageDataset(train_df, path=config.data.train_dir, mode='train',
-                            num_classes=config.model.num_classes, resize=False,
-                            augmentor=transform_train)
+    train_dataset = ImageDataset(train_df, mode='train', config=config,
+                                 augmentor=transform_train)
 
-    val_dataset = ImageDataset(val_df, path=config.data.train_dir, mode='val',
-                          num_classes=config.model.num_classes, resize=False,
-                          num_tta=1, augmentor=transform_test)
+    val_dataset = ImageDataset(val_df, mode='val', config=config,
+                               augmentor=transform_test)
 
-    test_dataset = ImageDataset(test_df, path=config.data.test_dir, mode='test',
-                           num_classes=config.model.num_classes, resize=False,
-                           num_tta=config.test.num_ttas,
-                           augmentor=transform_test)
+    test_dataset = ImageDataset(test_df, mode='test', config=config,
+                                augmentor=transform_test)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=config.train.batch_size, shuffle=True,

@@ -3,6 +3,7 @@
 import math
 import os
 import pickle
+import random
 
 from collections import defaultdict
 from glob import glob
@@ -16,44 +17,72 @@ import torchvision.transforms as transforms
 
 from PIL import Image
 
+
 SAVE_DEBUG_IMAGES = False
-VERSION = os.path.splitext(os.path.basename(__file__))[0]
 
 
 class ImageDataset(torch.utils.data.Dataset):
-    def __init__(self, dataframe: pd.DataFrame, path: str, mode: str,
-                 num_classes: int, image_size: int = 0, resize: bool = True,
-                 augmentor: Any = None, aug_type: str = 'albu',
-                 num_tta: int = 1, inception: bool = False) -> None:
-        print(f'creating {VERSION} in mode={mode}')
+    def __init__(self, dataframe: pd.DataFrame, mode: str, config: Any,
+                 augmentor: Any = None, aug_type: str = 'albu') -> None:
+        print(f'creating data_loader for {config.version} in mode={mode}')
         assert mode in ['train', 'val', 'test']
-        assert mode != 'train' or num_tta == 1
 
         self.df = dataframe
-        self.path = path
         self.mode = mode
-        self.num_classes = num_classes
-        self.image_size = image_size
-        self.resize = resize
         self.augmentor = augmentor
         self.aug_type = aug_type
-        self.num_tta = num_tta
 
-        if not inception:
-            self.transforms = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                      std=[0.229, 0.224, 0.225]),
-            ])
-        else:
+        self.version = config.version
+        self.path = config.data.train_dir
+        self.num_classes = config.model.num_classes
+        self.input_size = config.model.input_size
+        self.rect_crop = config.data.rect_crop
+        self.num_tta = config.test.num_ttas if mode != 'train' else 1
+
+        if 'ception' in config.model.arch:
             self.transforms = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.5, 0.5, 0.5],
                                       std=[0.5, 0.5, 0.5])
             ])
+        else:
+            self.transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                      std=[0.229, 0.224, 0.225]),
+            ])
 
     def _transform_image(self, image: Image, index: int) -> torch.Tensor:
         image = np.array(image)
+
+        if self.rect_crop:
+            dims = image.shape[:2]
+            biggest_size, smallest_size = max(dims), min(dims)
+
+            assert self.rect_crop.min_ratio <= self.rect_crop.max_ratio
+            assert self.rect_crop.max_ratio <= 1.0
+
+            ratio = random.uniform(self.rect_crop.min_ratio, self.rect_crop.max_ratio)
+            crop_big_size = min(int(self.input_size / ratio), biggest_size)
+            crop_small_size = min(self.input_size, smallest_size)
+
+            crop_size = (crop_big_size, crop_small_size) if biggest_size == dims[0] \
+                        else (crop_small_size, crop_big_size)
+
+            y = int(random.uniform(0, dims[0] - crop_size[0]))
+            x = int(random.uniform(0, dims[1] - crop_size[1]))
+            image = image[y : y + crop_size[0], x : x + crop_size[1]]
+
+            if self.rect_crop.scale_both_dims:
+                new_size = (self.input_size, self.input_size)
+            else:
+                new_size = (min(crop_size[0], self.input_size),
+                            min(crop_size[1], self.input_size))
+
+            # print(f'dims were {dims[0]}x{dims[1]}, crop {crop_size[0]}' +
+            #       f'x{crop_size[1]}, scaled into {new_size[0]}x{new_size[1]}')
+
+            image = np.array(Image.fromarray(image).resize(new_size, Image.BICUBIC))
 
         if self.augmentor is not None:
             if self.aug_type == 'albu':
@@ -62,8 +91,8 @@ class ImageDataset(torch.utils.data.Dataset):
                 image = self.augmentor.augment_image(image)
 
         if SAVE_DEBUG_IMAGES:
-            os.makedirs(f'../debug_images_{VERSION}/', exist_ok=True)
-            Image.fromarray(image).save(f'../debug_images_{VERSION}/{index}.png')
+            os.makedirs(f'../debug_images_{self.version}/', exist_ok=True)
+            Image.fromarray(image).save(f'../debug_images_{self.version}/{index}.png')
 
         return self.transforms(image)
 
@@ -72,9 +101,6 @@ class ImageDataset(torch.utils.data.Dataset):
         filename = self.df.iloc[index, 0]
         image = Image.open(os.path.join(self.path, filename + '.png'))
         assert image.mode == 'RGB'
-
-        if self.resize:
-            image = image.resize((self.image_size, self.image_size), Image.LANCZOS)
 
         if self.num_tta == 1:
             image = self._transform_image(image, index)

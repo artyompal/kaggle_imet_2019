@@ -20,11 +20,6 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.experiment_dir = f'../models/{cfg.version}/fold_{args.fold}/'
     cfg.num_workers = min(12, multiprocessing.cpu_count())
 
-    cfg.data = edict()
-    cfg.data.train_dir = '../input/train/'
-    cfg.data.test_dir = '../input/test/'
-    cfg.data.params = edict()
-
     cfg.model = edict()
     cfg.model.arch = 'resnet50'
     cfg.model.image_size = 0
@@ -33,6 +28,11 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.model.num_folds = 5
     cfg.model.bottleneck_fc = None
     cfg.model.dropout = 0
+
+    cfg.data = edict()
+    cfg.data.train_dir = '../input/train/'
+    cfg.data.test_dir = '../input/test/'
+    cfg.data.rect_crop = edict()
 
     cfg.train = edict()
     cfg.train.batch_size = 32 * torch.cuda.device_count()
