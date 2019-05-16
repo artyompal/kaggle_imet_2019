@@ -20,7 +20,7 @@ train:
     head_only_warmup: true
     enable_warmup: true
     warmup:
-        steps: 5000
+        steps: 3000
         max_lr: 1e-4
 
 test:
