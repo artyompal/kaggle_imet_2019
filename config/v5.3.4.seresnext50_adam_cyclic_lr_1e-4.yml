@@ -3,7 +3,7 @@ model:
     arch: 'seresnext50_32x4d'
     input_size: 320
     num_classes: 1103
-    dropout: 0.3
+    dropout: 0
 
 data:
     rect_crop:
@@ -20,7 +20,7 @@ train:
     enable_warmup: true
     warmup:
         steps: 5000
-        max_lr: 1e-4
+        max_lr: 2e-5
 
 test:
     csv: '../input/sample_submission.csv'
@@ -29,8 +29,6 @@ test:
 
 optimizer:
     name: 'adam'
-    params:
-        lr: 1e-4
 
 scheduler:
     name: 'cyclic_lr'
