@@ -2,6 +2,7 @@
 ''' Trains a model or infers predictions. '''
 
 import argparse
+import math
 import os
 import pprint
 import random
@@ -174,6 +175,102 @@ def load_data(fold: int) -> Any:
 
     return train_loader, val_loader, test_loader
 
+def lr_finder(train_loader: Any, model: Any, criterion: Any, optimizer: Any) -> None:
+    ''' Finds the optimal LR range and sets up first optimizer parameters. '''
+    logger.info('lr_finder called')
+
+    batch_time = AverageMeter()
+    num_steps = min(len(train_loader), config.train.lr_finder.num_steps)
+    logger.info(f'total batches: {num_steps}')
+    end = time.time()
+    lr_str = ''
+    model.train()
+
+    init_value = config.train.lr_finder.init_value
+    final_value = config.train.lr_finder.final_value
+    beta = config.train.lr_finder.beta
+
+    mult = (final_value / init_value) ** (1 / (num_steps - 1))
+    lr = init_value
+
+    avg_loss = best_loss = 0.0
+    losses = np.zeros(num_steps)
+    logs = np.zeros(num_steps)
+
+    for i, (input_, target) in enumerate(train_loader):
+        if i >= num_steps:
+            break
+
+        set_lr(optimizer, lr)
+
+        output = model(input_.cuda())
+        loss = criterion(output, target.cuda())
+        loss_val = loss.data.item()
+
+        predict = (output.detach() > 0.1).type(torch.FloatTensor)
+        f2 = F_score(predict, target, beta=2)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        lr_str = f'\tlr {lr:.08f}'
+
+        # compute the smoothed loss
+        avg_loss = beta * avg_loss + (1 - beta) * loss_val
+        smoothed_loss = avg_loss / (1 - beta ** (i + 1))
+
+        # stop if the loss is exploding
+        if i > 0 and smoothed_loss > 4 * best_loss:
+            break
+
+        # record the best loss
+        if smoothed_loss < best_loss or i == 0:
+            best_loss = smoothed_loss
+
+        # store the values
+        losses[i] = smoothed_loss
+        logs[i] = math.log10(lr)
+
+        # update the lr for the next step
+        lr *= mult
+
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % config.train.log_freq == 0:
+            logger.info(f'lr_finder [{i}/{num_steps}]\t'
+                        f'time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                        f'loss {loss:.4f} ({smoothed_loss:.4f})\t'
+                        f'F2 {f2:.4f} {lr_str}')
+
+    np.savez(os.path.join(config.experiment_dir, f'lr_finder_{config.version}'),
+             logs=logs, losses=losses)
+
+    d1 = np.zeros_like(losses); d1[1:] = losses[1:] - losses[:-1]
+    first, last = np.argmin(d1), np.argmin(losses)
+    dprint(first)
+    dprint(last)
+
+    MAGIC_COEFF = 4
+
+    highest_lr = 10 ** logs[last]
+    best_high_lr = highest_lr / MAGIC_COEFF
+    best_low_lr = 10 ** logs[first]
+    print('best_low_lr', best_low_lr, 'best_high_lr', best_high_lr,
+          'highest_lr', highest_lr)
+
+    def find_nearest(array, value):
+        return (np.abs(array - value)).argmin()
+
+    last = find_nearest(logs, math.log10(best_high_lr))
+    dprint(first)
+    dprint(last)
+
+    import matplotlib.pyplot as plt
+    plt.plot(logs, losses, '-D', markevery=[first, last])
+    plt.savefig(os.path.join(config.experiment_dir, 'lr_finder_plot.png'))
+
 def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
                 epoch: int, lr_scheduler: Any, lr_scheduler2: Any,
                 max_steps: Optional[int]) -> None:
@@ -201,7 +298,7 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
         output = model(input_.cuda())
         loss = criterion(output, target.cuda())
 
-        predict = (output.detach() > 0.5).type(torch.FloatTensor)
+        predict = (output.detach() > 0.1).type(torch.FloatTensor)
         avg_score.update(F_score(predict, target, beta=2))
 
         losses.update(loss.data.item(), input_.size(0))
@@ -307,6 +404,11 @@ def run() -> float:
     model = create_model(config, logger, args)
     criterion = get_loss(config)
 
+    if args.lr_finder:
+        optimizer = get_optimizer(config, model.parameters())
+        lr_finder(train_loader, model, criterion, optimizer)
+        sys.exit()
+
     if args.weights is None and config.train.head_only_warmup:
         logger.info('-' * 50)
         logger.info(f'doing warmup for {config.train.warmup.steps} steps')
@@ -362,7 +464,7 @@ def run() -> float:
         print('inference mode')
         assert args.weights is not None
         gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
-        sys.exit(0)
+        sys.exit()
 
     best_score = 0.0
     best_epoch = 0
@@ -430,6 +532,7 @@ def run() -> float:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', help='model configuration file (YAML)', type=str, required=True)
+    parser.add_argument('--lr_finder', help='invoke LR finder and exit', action='store_true')
     parser.add_argument('--weights', help='model to resume training', type=str)
     parser.add_argument('--dataset', help='dataset for prediction, train/test',
                         type=str, default='test')

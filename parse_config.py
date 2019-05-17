@@ -42,13 +42,17 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.max_steps_per_epoch = None
     cfg.train.log_freq = 100
     cfg.train.min_lr = 3e-7
-    cfg.train.lr_scheduler = None
     cfg.train.use_balancing_sampler = False
     cfg.train.enable_warmup = False
     cfg.train.head_only_warmup = False
     cfg.train.warmup = edict()
     cfg.train.warmup.steps = None
     cfg.train.warmup.max_lr = None
+    cfg.train.lr_finder = edict()
+    cfg.train.lr_finder.num_steps = 2 ** 32 # one epoch
+    cfg.train.lr_finder.beta = 0.98
+    cfg.train.lr_finder.init_value = 1e-8
+    cfg.train.lr_finder.final_value = 10
 
     cfg.val = edict()
     cfg.val.images_per_class = None
