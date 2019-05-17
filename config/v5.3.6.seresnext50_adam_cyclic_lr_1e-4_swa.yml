@@ -47,6 +47,3 @@ loss:
 
 augmentations:
     hflip: true
-    blur: 0.3
-    distortion: 0.2
-    noise: 0.3
