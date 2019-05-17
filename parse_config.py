@@ -45,9 +45,15 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.use_balancing_sampler = False
     cfg.train.enable_warmup = False
     cfg.train.head_only_warmup = False
+    
     cfg.train.warmup = edict()
     cfg.train.warmup.steps = None
     cfg.train.warmup.max_lr = None
+
+    cfg.train.swa = edict()
+    cfg.train.swa.enable = False
+    cfg.train.swa.period = None
+
     cfg.train.lr_finder = edict()
     cfg.train.lr_finder.num_steps = 2 ** 32 # one epoch
     cfg.train.lr_finder.beta = 0.98

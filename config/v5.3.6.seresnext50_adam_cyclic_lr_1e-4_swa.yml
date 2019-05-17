@@ -3,7 +3,7 @@ model:
     arch: 'seresnext50_32x4d'
     input_size: 320
     num_classes: 1103
-    dropout: 0
+    dropout: 0.3
 
 data:
     rect_crop:
@@ -17,6 +17,13 @@ train:
     batch_size: 16
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
+    enable_warmup: true
+    warmup:
+        steps: 5000
+        max_lr: 1e-4
+    swa:
+        enable: true
+        period: 3               # blend weights every 3 epochs
 
 test:
     csv: '../input/sample_submission.csv'
@@ -24,20 +31,24 @@ test:
     num_ttas: 2
 
 optimizer:
-    name: 'sgd'
+    name: 'adam'
     params:
         lr: 1e-4
 
 scheduler:
     name: 'cyclic_lr'
     params:
-        max_lr: 0.1
-        base_lr: 0.007
-        step_size_up: 8194     # total period is 3 epochs 
-        mode: 'triangular2'
+        max_lr: 1e-4
+        base_lr: 2e-5
+        step_size_up: 8194     # total period is 3 epochs
+        mode: 'triangular'
+        cycle_momentum: False
 
 loss:
     name: 'binary_cross_entropy'
 
 augmentations:
     hflip: true
+    blur: 0.3
+    distortion: 0.2
+    noise: 0.3

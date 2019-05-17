@@ -17,6 +17,9 @@ train:
     batch_size: 16
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
+    swa:
+        enable: true
+        period: 3               # blend weights every 3 epochs
 
 test:
     csv: '../input/sample_submission.csv'
@@ -26,7 +29,7 @@ test:
 optimizer:
     name: 'sgd'
     params:
-        lr: 1e-4
+        lr: 0.01
 
 scheduler:
     name: 'cyclic_lr'
