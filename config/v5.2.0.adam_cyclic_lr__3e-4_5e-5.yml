@@ -33,10 +33,13 @@ optimizer:
         lr: 1e-4
 
 scheduler:
-    name: 'multi_step'
+    name: 'cyclic_lr'
     params:
-        gamma: 0.2
-        milestones: '[8, 13, 17, 20]'
+        max_lr: 3e-4
+        base_lr: 5e-5
+        step_size_up: 16389     # 3 epochs
+        mode: 'triangular'
+        cycle_momentum: False
 
 loss:
     name: 'binary_cross_entropy'

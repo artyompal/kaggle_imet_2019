@@ -344,7 +344,7 @@ def run() -> float:
         assert last_checkpoint['arch'] == config.model.arch
         model.load_state_dict(last_checkpoint['state_dict'])
         optimizer.load_state_dict(last_checkpoint['optimizer'])
-        logger.info(f'checkpoint {args.weights} was loaded.')
+        logger.info(f'checkpoint loaded: {args.weights}')
 
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_epoch}')
@@ -384,7 +384,7 @@ def run() -> float:
                 assert(last_checkpoint['arch']==config.model.arch)
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
-                logger.info(f'checkpoint loaded: {best_model_path}.')
+                logger.info(f'checkpoint loaded: {best_model_path}')
                 set_lr(optimizer, lr)
                 last_lr = lr
 
