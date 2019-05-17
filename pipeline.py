@@ -35,7 +35,7 @@ from schedulers import get_scheduler, is_scheduler_continuous, get_warmup_schedu
 from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
-from models import create_model, save_checkpoint, freeze_layers, unfreeze_layers
+from models import create_model, freeze_layers, unfreeze_layers
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
@@ -379,11 +379,12 @@ def run() -> float:
 
             if lr < last_lr - 1e-10 and best_model_path is not None:
                 logger.info(f'learning rate dropped: {lr}, reloading')
-                last_checkpoint = torch.load(os.path.join(model_dir, best_model_path))
+                last_checkpoint = torch.load(best_model_path)
+
                 assert(last_checkpoint['arch']==config.model.arch)
                 model.load_state_dict(last_checkpoint['state_dict'])
                 optimizer.load_state_dict(last_checkpoint['optimizer'])
-                logger.info(f'checkpoint {best_model_path} was loaded.')
+                logger.info(f'checkpoint loaded: {best_model_path}.')
                 set_lr(optimizer, lr)
                 last_lr = lr
 
@@ -391,9 +392,14 @@ def run() -> float:
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
         score, _, _ = validate(val_loader, model, epoch)
 
-        if not is_scheduler_continuous(lr_scheduler):
+        if config.scheduler.name == 'reduce_lr_on_plateau':
+            lr_scheduler.step(score)
+        elif not is_scheduler_continuous(lr_scheduler):
             lr_scheduler.step()
-        if lr_scheduler2 and not is_scheduler_continuous(lr_scheduler2):
+
+        if config.scheduler2.name == 'reduce_lr_on_plateau':
+            lr_scheduler.step(score)
+        elif lr_scheduler2 and not is_scheduler_continuous(lr_scheduler2):
             lr_scheduler2.step()
 
         is_best = score > best_score
@@ -401,20 +407,21 @@ def run() -> float:
         if is_best:
             best_epoch = epoch
 
-        data_to_save = {
-            'epoch': epoch,
-            'arch': config.model.arch,
-            'state_dict': model.state_dict(),
-            'best_score': best_score,
-            'score': score,
-            'optimizer': optimizer.state_dict(),
-            'config': config
-        }
-
-        filename = config.version
         if is_best:
-            best_model_path = f'{filename}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth'
-            save_checkpoint(data_to_save, best_model_path, model_dir)
+            best_model_path = os.path.join(model_dir,
+                f'{config.version}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth')
+
+            data_to_save = {
+                'epoch': epoch,
+                'arch': config.model.arch,
+                'state_dict': model.state_dict(),
+                'best_score': best_score,
+                'score': score,
+                'optimizer': optimizer.state_dict(),
+                'config': config
+            }
+
+            torch.save(data_to_save, best_model_path)
             logger.info(f'a snapshot was saved to {best_model_path}')
 
     logger.info(f'best score: {best_score:.04f}')

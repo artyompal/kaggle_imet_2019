@@ -47,9 +47,6 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
 
     return model
 
-def save_checkpoint(state: Dict[str, Any], filename: str, model_dir: str) -> None:
-    torch.save(state, os.path.join(model_dir, filename))
-
 def freeze_layers(model: Any) -> None:
     ''' Freezes all layers but the last one. '''
     m = model.module

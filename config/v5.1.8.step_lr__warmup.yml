@@ -36,7 +36,7 @@ scheduler:
     name: 'multi_step'
     params:
         gamma: 0.2
-        milestones: '[9, 13, 17, 20]'
+        milestones: '[8, 13, 17, 20]'
 
 loss:
     name: 'binary_cross_entropy'
