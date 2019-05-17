@@ -71,8 +71,8 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
     return df.loc[folds != fold], df.loc[folds == fold]
 
 def load_data(fold: int) -> Any:
-    torch.multiprocessing.set_sharing_strategy('file_system')
-    cudnn.benchmark = True
+    torch.multiprocessing.set_sharing_strategy('file_system') # type: ignore
+    cudnn.benchmark = True # type: ignore
 
     logger.info('config:')
     logger.info(pprint.pformat(config))
@@ -249,23 +249,20 @@ def lr_finder(train_loader: Any, model: Any, criterion: Any, optimizer: Any) -> 
 
     d1 = np.zeros_like(losses); d1[1:] = losses[1:] - losses[:-1]
     first, last = np.argmin(d1), np.argmin(losses)
-    dprint(first)
-    dprint(last)
 
     MAGIC_COEFF = 4
 
     highest_lr = 10 ** logs[last]
     best_high_lr = highest_lr / MAGIC_COEFF
     best_low_lr = 10 ** logs[first]
-    print('best_low_lr', best_low_lr, 'best_high_lr', best_high_lr,
-          'highest_lr', highest_lr)
+    logger.info('best_low_lr', best_low_lr, 'best_high_lr', best_high_lr,
+                'highest_lr', highest_lr)
 
-    def find_nearest(array, value):
+    def find_nearest(array: np.array, value: float) -> int:
         return (np.abs(array - value)).argmin()
 
     last = find_nearest(logs, math.log10(best_high_lr))
-    dprint(first)
-    dprint(last)
+    logger.info('first', first, 'last', last)
 
     import matplotlib.pyplot as plt
     plt.plot(logs, losses, '-D', markevery=[first, last])
