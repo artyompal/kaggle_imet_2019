@@ -388,8 +388,6 @@ def run() -> float:
                     warmup_scheduler, None, config.train.warmup.steps)
 
     optimizer = get_optimizer(config, model.parameters())
-    lr_scheduler = get_scheduler(config, optimizer)
-    lr_scheduler2 = get_scheduler(config, optimizer) if config.scheduler2.name else None
 
     if args.weights is None:
         last_epoch = 0
@@ -415,6 +413,10 @@ def run() -> float:
         gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
         sys.exit(0)
 
+    lr_scheduler = get_scheduler(config, optimizer, last_epoch=last_epoch - 1)
+    lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=last_epoch - 1) \
+                    if config.scheduler2.name else None
+
     best_score = 0.0
     best_epoch = 0
 
@@ -424,8 +426,7 @@ def run() -> float:
     for epoch in range(last_epoch + 1, config.train.num_epochs + 1):
         logger.info('-' * 50)
 
-        # FIXME: this code doesn't support second LR scheduler
-        if not is_scheduler_continuous(lr_scheduler):
+        if not is_scheduler_continuous(lr_scheduler) and lr_scheduler2 is None:
             # if we have just reduced LR, reload the best saved model
             lr = get_lr(optimizer)
 
@@ -438,10 +439,6 @@ def run() -> float:
                 logger.info(f'checkpoint {best_model_path} was loaded.')
                 set_lr(optimizer, lr)
                 last_lr = lr
-
-            if lr < config.train.min_lr * 1.01:
-                logger.info('reached minimum LR, stopping')
-                break
 
         train_epoch(train_loader, model, criterion, optimizer, epoch,
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)

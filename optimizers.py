@@ -1,8 +1,9 @@
 ''' All available optimizers are defined here. '''
 
 import json
-from typing import Any
 import torch.optim as optim
+
+from typing import Any
 
 
 def adam(parameters, lr=0.001, betas=(0.9, 0.999), weight_decay=0,

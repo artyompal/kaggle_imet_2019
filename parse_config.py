@@ -36,7 +36,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
 
     cfg.train = edict()
     cfg.train.batch_size = 32 * torch.cuda.device_count()
-    cfg.train.num_epochs = 1000
+    cfg.train.num_epochs = 2 ** 32
     cfg.train.shuffle = True
     cfg.train.images_per_class = None
     cfg.train.max_steps_per_epoch = None

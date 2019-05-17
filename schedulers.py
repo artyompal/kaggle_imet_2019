@@ -1,7 +1,9 @@
 ''' Learning rate schedulers. '''
 
-from typing import Any
+import json
 import torch.optim.lr_scheduler as lr_sched
+
+from typing import Any
 
 
 def step(optimizer, last_epoch, step_size=10, gamma=0.1, **_) -> Any:
@@ -10,7 +12,8 @@ def step(optimizer, last_epoch, step_size=10, gamma=0.1, **_) -> Any:
 
 def multi_step(optimizer, last_epoch, milestones=[500, 5000], gamma=0.1, **_) -> Any:
     if isinstance(milestones, str):
-        milestones = eval(milestones)
+        milestones = json.loads(milestones)
+
     return lr_sched.MultiStepLR(optimizer, milestones=milestones, gamma=gamma,
                                 last_epoch=last_epoch)
 
