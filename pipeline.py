@@ -19,7 +19,6 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 
-from pytorchcv.model_provider import get_model
 from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 from easydict import EasyDict as edict
@@ -36,15 +35,9 @@ from schedulers import get_scheduler, is_scheduler_continuous, get_warmup_schedu
 from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
+from models import create_model, save_checkpoint, freeze_layers, unfreeze_layers
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
-
-if not IN_KERNEL:
-    import torchsummary
-    from pytorchcv.model_provider import get_model
-    # from hyperopt import hp, tpe, fmin
-else:
-    from model_provider import get_model
 
 
 def make_folds(df: pd.DataFrame) -> pd.DataFrame:
@@ -181,40 +174,6 @@ def load_data(fold: int) -> Any:
 
     return train_loader, val_loader, test_loader
 
-def create_model(predict_only: bool) -> Any:
-    logger.info(f'creating a model {config.model.arch}')
-    dropout = config.model.dropout
-
-    model = get_model(config.model.arch, pretrained = not predict_only)
-    model.features[-1] = nn.AdaptiveAvgPool2d(1)
-
-    if config.model.arch == 'pnasnet5large':
-        if dropout == 0.0:
-            model.output = nn.Linear(model.output[-1].in_features, config.model.num_classes)
-        else:
-            model.output = nn.Sequential(
-                 nn.Dropout(dropout),
-                 nn.Linear(model.output[-1].in_features, config.model.num_classes))
-    else:
-        if dropout < 0.1:
-            model.output = nn.Linear(model.output.in_features, config.model.num_classes)
-        else:
-            model.output = nn.Sequential(
-                 nn.Dropout(dropout),
-                 nn.Linear(model.output.in_features, config.model.num_classes))
-
-    model = torch.nn.DataParallel(model).cuda()
-    model.cuda()
-
-    if args.summary:
-        torchsummary.summary(model, (3, config.model.input_size, config.model.input_size))
-
-    return model
-
-def save_checkpoint(state: Dict[str, Any], filename: str, model_dir: str) -> None:
-    torch.save(state, os.path.join(model_dir, filename))
-    logger.info(f'A snapshot was saved to {filename}')
-
 def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
                 epoch: int, lr_scheduler: Any, lr_scheduler2: Any,
                 max_steps: Optional[int]) -> None:
@@ -338,22 +297,6 @@ def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
     filename = f'level1_{name}_{os.path.splitext(os.path.basename(model_path))[0]}'
     np.save(filename, predicts)
 
-def freeze_layers(model: Any) -> None:
-    ''' Freezes all layers but the last one. '''
-    m = model.module
-    for layer in m.children():
-        for param in layer.parameters():
-            param.requires_grad = False
-
-    for layer in model.module.output.children():
-        for param in layer.parameters():
-            param.requires_grad = True
-
-def unfreeze_layers(model: Any) -> None:
-    for layer in model.module.children():
-        for param in layer.parameters():
-            param.requires_grad = True
-
 def run() -> float:
     np.random.seed(0)
     model_dir = config.experiment_dir
@@ -361,7 +304,7 @@ def run() -> float:
     logger.info('=' * 50)
 
     train_loader, val_loader, test_loader = load_data(args.fold)
-    model = create_model(args.gen_predict)
+    model = create_model(config, logger, args)
     criterion = get_loss(config)
 
     if args.weights is None and config.train.head_only_warmup:
@@ -468,6 +411,7 @@ def run() -> float:
         if is_best:
             best_model_path = f'{filename}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth'
             save_checkpoint(data_to_save, best_model_path, model_dir)
+            logger.info(f'a snapshot was saved to {best_model_path}')
 
     logger.info(f'best score: {best_score:.04f}')
     return -best_score
