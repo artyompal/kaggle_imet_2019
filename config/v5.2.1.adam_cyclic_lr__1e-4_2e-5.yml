@@ -37,7 +37,7 @@ scheduler:
     params:
         max_lr: 1e-4
         base_lr: 2e-5
-        step_size_up: 16389     # 3 epochs
+        step_size_up: 8194     # 3 epochs
         mode: 'triangular'
         cycle_momentum: False
 
