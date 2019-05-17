@@ -393,12 +393,12 @@ def run() -> float:
         score, _, _ = validate(val_loader, model, epoch)
 
         if config.scheduler.name == 'reduce_lr_on_plateau':
-            lr_scheduler.step(score)
+            lr_scheduler.step(metrics=score)
         elif not is_scheduler_continuous(lr_scheduler):
             lr_scheduler.step()
 
         if config.scheduler2.name == 'reduce_lr_on_plateau':
-            lr_scheduler.step(score)
+            lr_scheduler.step(metrics=score)
         elif lr_scheduler2 and not is_scheduler_continuous(lr_scheduler2):
             lr_scheduler2.step()
 
