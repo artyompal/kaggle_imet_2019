@@ -82,7 +82,7 @@ def load_data(fold: int) -> Any:
     print('train_df', train_df.shape, 'val_df', val_df.shape)
     test_df = pd.read_csv(config.test.csv)
 
-    augs = []
+    augs: List[Union[albu.BasicTransform, albu.OneOf]] = []
 
     if config.augmentations.hflip:
         augs.append(albu.HorizontalFlip(.5))
@@ -335,6 +335,10 @@ def run() -> float:
     if args.weights is None:
         last_epoch = 0
         logger.info(f'training will start from epoch {last_epoch+1}')
+
+        lr_scheduler = get_scheduler(config, optimizer, last_epoch=-1)
+        lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=-1) \
+                        if config.scheduler2.name else None
     else:
         last_checkpoint = torch.load(args.weights)
         assert last_checkpoint['arch'] == config.model.arch
@@ -350,15 +354,15 @@ def run() -> float:
         elif 'lr' in config.scheduler.params:
             set_lr(optimizer, config.scheduler.params.lr)
 
+        lr_scheduler = get_scheduler(config, optimizer, last_epoch=last_epoch)
+        lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=last_epoch) \
+                        if config.scheduler2.name else None
+
     if args.gen_predict:
         print('inference mode')
         assert args.weights is not None
         gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
         sys.exit(0)
-
-    lr_scheduler = get_scheduler(config, optimizer, last_epoch=last_epoch - 1)
-    lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=last_epoch - 1) \
-                    if config.scheduler2.name else None
 
     best_score = 0.0
     best_epoch = 0
@@ -366,7 +370,7 @@ def run() -> float:
     last_lr = get_lr(optimizer)
     best_model_path = args.weights
 
-    for epoch in range(last_epoch + 1, config.train.num_epochs + 1):
+    for epoch in range(last_epoch, config.train.num_epochs):
         logger.info('-' * 50)
 
         if not is_scheduler_continuous(lr_scheduler) and lr_scheduler2 is None:
@@ -387,10 +391,10 @@ def run() -> float:
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
         score, _, _ = validate(val_loader, model, epoch)
 
-        if not is_scheduler_continuous(config.scheduler.name):
-            lr_scheduler.step(score)
-        if lr_scheduler2 and not is_scheduler_continuous(config.scheduler.name):
-            lr_scheduler2.step(score)
+        if not is_scheduler_continuous(lr_scheduler):
+            lr_scheduler.step()
+        if lr_scheduler2 and not is_scheduler_continuous(lr_scheduler2):
+            lr_scheduler2.step()
 
         is_best = score > best_score
         best_score = max(score, best_score)
