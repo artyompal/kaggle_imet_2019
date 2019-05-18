@@ -283,7 +283,9 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
     model.train()
     optimizer.zero_grad()
 
-    num_steps = min(num_steps, max_steps) if max_steps is not None else len(train_loader)
+    num_steps = len(train_loader)
+    if max_steps is not None:
+        num_steps = min(max_steps, num_steps)
     num_steps -= num_steps % config.train.accum_batches_num
 
     logger.info(f'total batches: {num_steps}')
