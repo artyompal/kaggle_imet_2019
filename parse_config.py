@@ -45,7 +45,8 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.use_balancing_sampler = False
     cfg.train.enable_warmup = False
     cfg.train.head_only_warmup = False
-    
+    cfg.train.accum_batches_num = 1
+
     cfg.train.warmup = edict()
     cfg.train.warmup.steps = None
     cfg.train.warmup.max_lr = None

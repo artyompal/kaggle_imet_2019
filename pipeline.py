@@ -281,10 +281,10 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
     avg_score = AverageMeter()
 
     model.train()
+    optimizer.zero_grad()
 
-    num_steps = len(train_loader)
-    if max_steps is not None:
-        num_steps = min(len(train_loader), max_steps)
+    num_steps = min(num_steps, max_steps) if max_steps is not None else len(train_loader)
+    num_steps -= num_steps % config.train.accum_batches_num
 
     logger.info(f'total batches: {num_steps}')
     end = time.time()
@@ -301,9 +301,11 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
         avg_score.update(F_score(predict, target, beta=2))
 
         losses.update(loss.data.item(), input_.size(0))
-        optimizer.zero_grad()
         loss.backward()
-        optimizer.step()
+
+        if (i + 1) % config.train.accum_batches_num == 0:
+            optimizer.step()
+            optimizer.zero_grad()
 
         if is_scheduler_continuous(lr_scheduler):
             lr_scheduler.step()
