@@ -257,14 +257,14 @@ def lr_finder(train_loader: Any, model: Any, criterion: Any, optimizer: Any) -> 
     highest_lr = 10 ** logs[last]
     best_high_lr = highest_lr / MAGIC_COEFF
     best_low_lr = 10 ** logs[first]
-    logger.info('best_low_lr', best_low_lr, 'best_high_lr', best_high_lr,
-                'highest_lr', highest_lr)
+    logger.info(f'best_low_lr={best_low_lr} best_high_lr={best_high_lr} '
+                f'highest_lr={highest_lr}')
 
     def find_nearest(array: np.array, value: float) -> int:
         return (np.abs(array - value)).argmin()
 
     last = find_nearest(logs, math.log10(best_high_lr))
-    logger.info('first', first, 'last', last)
+    logger.info(f'first={first} last={last}')
 
     import matplotlib.pyplot as plt
     plt.plot(logs, losses, '-D', markevery=[first, last])
