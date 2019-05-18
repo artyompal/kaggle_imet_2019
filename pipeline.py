@@ -441,7 +441,7 @@ def run() -> float:
 
     if args.weights is None:
         last_epoch = 0
-        logger.info(f'training will start from epoch {last_epoch+1}')
+        logger.info(f'training will start from epoch {last_epoch}')
 
         lr_scheduler = get_scheduler(config, optimizer, last_epoch=-1)
         lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=-1) \
