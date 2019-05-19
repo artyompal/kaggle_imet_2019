@@ -270,6 +270,16 @@ def lr_finder(train_loader: Any, model: Any, criterion: Any, optimizer: Any) -> 
     plt.plot(logs, losses, '-D', markevery=[first, last])
     plt.savefig(os.path.join(config.experiment_dir, 'lr_finder_plot.png'))
 
+def mixup(x: torch.Tensor, y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    ''' Performs mixup: https://arxiv.org/pdf/1710.09412.pdf '''
+    coeff = np.random.beta(config.train.mixup.beta_a, config.train.mixup.beta_a)
+    indices = np.roll(np.arange(x.shape[0]), np.random.randint(1, x.shape[0]))
+    indices = torch.tensor(indices).cuda()
+
+    x = x * coeff + x[indices] * (1 - coeff)
+    y = y * coeff + y[indices] * (1 - coeff)
+    return x, y
+
 def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
                 epoch: int, lr_scheduler: Any, lr_scheduler2: Any,
                 max_steps: Optional[int]) -> None:
@@ -296,7 +306,12 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
         if i >= num_steps:
             break
 
-        output = model(input_.cuda())
+        input_ = input_.cuda()
+
+        if config.train.mixup.enable:
+            input_, target = mixup(input_, target)
+
+        output = model(input_)
         loss = criterion(output, target.cuda())
 
         predict = (output.detach() > 0.1).type(torch.FloatTensor)

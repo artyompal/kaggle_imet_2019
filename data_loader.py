@@ -55,7 +55,7 @@ class ImageDataset(torch.utils.data.Dataset):
     def _transform_image(self, image: Image, index: int) -> torch.Tensor:
         image = np.array(image)
 
-        if self.rect_crop:
+        if self.rect_crop.enable:
             dims = image.shape[:2]
             biggest_size, smallest_size = max(dims), min(dims)
 

@@ -32,7 +32,12 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.data = edict()
     cfg.data.train_dir = '../input/train/'
     cfg.data.test_dir = '../input/test/'
+
     cfg.data.rect_crop = edict()
+    cfg.data.rect_crop.enable = False
+    cfg.data.min_ratio = 0.08
+    cfg.data.max_ratio = 1.0
+    cfg.data.scale_both_dims = False
 
     cfg.train = edict()
     cfg.train.batch_size = 32 * torch.cuda.device_count()
@@ -46,6 +51,10 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.enable_warmup = False
     cfg.train.head_only_warmup = False
     cfg.train.accum_batches_num = 1
+
+    cfg.train.mixup = edict()
+    cfg.train.mixup.enable = False
+    cfg.train.mixup.beta_a = 0.5
 
     cfg.train.warmup = edict()
     cfg.train.warmup.steps = None
