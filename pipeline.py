@@ -484,8 +484,8 @@ def run() -> float:
         elif 'lr' in config.scheduler.params:
             set_lr(optimizer, config.scheduler.params.lr)
 
-    lr_scheduler = get_scheduler(config, optimizer, last_epoch=last_epoch)
-    lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=last_epoch) \
+    lr_scheduler = get_scheduler(config.scheduler, optimizer, last_epoch=last_epoch)
+    lr_scheduler2 = get_scheduler(config.scheduler2, optimizer, last_epoch=last_epoch) \
                     if config.scheduler2.name else None
 
     if args.gen_predict:

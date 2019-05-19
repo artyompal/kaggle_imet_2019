@@ -47,8 +47,8 @@ def cyclic_lr(optimizer, last_epoch, base_lr=0.001, max_lr=0.01,
                              max_momentum=max_momentum, last_epoch=last_epoch)
 
 def get_scheduler(config, optimizer, last_epoch=-1):
-    func = globals().get(config.scheduler.name)
-    return func(optimizer, last_epoch, **config.scheduler.params)
+    func = globals().get(config.name)
+    return func(optimizer, last_epoch, **config.params)
 
 def is_scheduler_continuous(scheduler) -> bool:
     return type(scheduler) in [lr_sched.ExponentialLR,
