@@ -530,7 +530,7 @@ def run() -> float:
             lr_scheduler.step()
 
         if config.scheduler2.name == 'reduce_lr_on_plateau':
-            lr_scheduler.step(metrics=score)
+            lr_scheduler2.step(metrics=score)
         elif lr_scheduler2 and not is_scheduler_continuous(lr_scheduler2):
             lr_scheduler2.step()
 
