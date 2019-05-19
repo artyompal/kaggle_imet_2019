@@ -5,13 +5,6 @@ model:
     num_classes: 1103
     dropout: 0
 
-data:
-    rect_crop:
-        enable: true
-        min_ratio: 0.3
-        max_ratio: 1.0
-        scale_both_dims: false
-
 train:
     csv: '../input/train.csv'
     batch_size: 16
