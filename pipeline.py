@@ -36,6 +36,7 @@ from schedulers import get_scheduler, is_scheduler_continuous, get_warmup_schedu
 from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
+from random_erase import RandomErase
 from models import create_model, freeze_layers, unfreeze_layers
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
@@ -134,6 +135,14 @@ def load_data(fold: int) -> Any:
             albu.IAAEmboss(),
             albu.RandomBrightnessContrast(),
         ], p=config.augmentations.color))
+
+    if config.augmentations.erase.prob != 0:
+        augs.append(RandomErase(min_area=config.augmentations.erase.min_area,
+                                max_area=config.augmentations.erase.max_area,
+                                min_ratio=config.augmentations.erase.min_ratio,
+                                max_ratio=config.augmentations.erase.max_ratio,
+                                input_size=config.model.input_size,
+                                p=config.augmentations.erase.prob))
 
     transform_train = albu.Compose([
         albu.PadIfNeeded(config.model.input_size, config.model.input_size),

@@ -1,0 +1,51 @@
+
+model:
+    arch: 'seresnext50_32x4d'
+    input_size: 320
+    num_classes: 1103
+    dropout: 0
+
+data:
+    rect_crop:
+        enable: true
+        min_ratio: 0.3
+        max_ratio: 1.0
+        scale_both_dims: false
+
+train:
+    csv: '../input/train.csv'
+    batch_size: 16
+    folds_file: 'folds.npy'
+    max_steps_per_epoch: 15000
+    enable_warmup: true
+    warmup:
+        steps: 5000
+        max_lr: 1e-4
+
+test:
+    csv: '../input/sample_submission.csv'
+    batch_size: 32
+    num_ttas: 2
+
+optimizer:
+    name: 'adam'
+    params:
+        lr: 1e-4
+
+scheduler:
+    name: 'multi_step'
+    params:
+        gamma: 0.2
+        milestones: [12, 15, 18, 21]
+
+loss:
+    name: 'binary_cross_entropy'
+
+augmentations:
+    hflip: true
+    erase:
+        prob: 0.5
+        min_area: 0.02
+        max_area: 0.2
+        min_ratio: 0.3
+        max_ratio: 3.33

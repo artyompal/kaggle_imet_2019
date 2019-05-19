@@ -111,6 +111,13 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.augmentations.distortion = 0
     cfg.augmentations.color = 0
 
+    cfg.augmentations.erase = edict()
+    cfg.augmentations.erase.prob = 0
+    cfg.augmentations.erase.min_area = 0.02
+    cfg.augmentations.erase.max_area = 0.4
+    cfg.augmentations.erase.min_ratio = 0.3
+    cfg.augmentations.erase.max_ratio = 3.33
+
     return cfg
 
 def _merge_config(src: edict, dst: edict) -> edict:
