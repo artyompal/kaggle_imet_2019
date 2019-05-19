@@ -17,10 +17,9 @@ else:
 
 def create_model(config: Any, logger: Any, args: Any) -> Any:
     logger.info(f'creating a model {config.model.arch}')
-    predict_only = args.gen_predict
     dropout = config.model.dropout
 
-    model = get_model(config.model.arch, pretrained = not predict_only)
+    model = get_model(config.model.arch, pretrained=args.weights is None)
     model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
     if config.model.arch == 'pnasnet5large':
@@ -42,7 +41,6 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
     model.cuda()
 
     if args.summary:
-        import torchsummary
         torchsummary.summary(model, (3, config.model.input_size, config.model.input_size))
 
     return model

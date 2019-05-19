@@ -468,12 +468,7 @@ def run() -> float:
         optimizer = torchcontrib.optim.SWA(optimizer)
 
     if args.weights is None:
-        last_epoch = 0
-        logger.info(f'training will start from epoch {last_epoch}')
-
-        lr_scheduler = get_scheduler(config, optimizer, last_epoch=-1)
-        lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=-1) \
-                        if config.scheduler2.name else None
+        last_epoch = -1
     else:
         last_checkpoint = torch.load(args.weights)
         assert last_checkpoint['arch'] == config.model.arch
@@ -489,9 +484,9 @@ def run() -> float:
         elif 'lr' in config.scheduler.params:
             set_lr(optimizer, config.scheduler.params.lr)
 
-        lr_scheduler = get_scheduler(config, optimizer, last_epoch=last_epoch)
-        lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=last_epoch) \
-                        if config.scheduler2.name else None
+    lr_scheduler = get_scheduler(config, optimizer, last_epoch=last_epoch)
+    lr_scheduler2 = get_scheduler(config, optimizer, last_epoch=last_epoch) \
+                    if config.scheduler2.name else None
 
     if args.gen_predict:
         print('inference mode')
@@ -499,13 +494,15 @@ def run() -> float:
         gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
         sys.exit()
 
+    logger.info(f'training will start from epoch {last_epoch + 1}')
+
     best_score = 0.0
     best_epoch = 0
 
     last_lr = get_lr(optimizer)
     best_model_path = args.weights
 
-    for epoch in range(last_epoch, config.train.num_epochs):
+    for epoch in range(last_epoch + 1, config.train.num_epochs):
         logger.info('-' * 50)
 
         if not is_scheduler_continuous(lr_scheduler) and lr_scheduler2 is None:
