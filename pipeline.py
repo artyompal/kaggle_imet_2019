@@ -548,7 +548,6 @@ def run() -> float:
                 'epoch': epoch,
                 'arch': config.model.arch,
                 'state_dict': model.state_dict(),
-                'best_score': best_score,
                 'score': score,
                 'optimizer': optimizer.state_dict(),
                 'config': config
