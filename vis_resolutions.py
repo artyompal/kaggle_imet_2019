@@ -11,13 +11,13 @@ from debug import dprint
 
 
 directory = sys.argv[1]
-cache_path = f'../cache/sizes_{directory}.pkl'
+cache_path = f'../cache/sizes_{os.path.basename(directory)}.pkl'
 os.makedirs(os.path.basename(cache_path), exist_ok=True)
 
 if os.path.exists(cache_path):
     sizes = pickle.load(open(cache_path, 'rb'))
 else:
-    sizes = [np.array(Image.open(path)).shape for path in tqdm(glob(f'../input/{directory}/*.png'))]
+    sizes = [np.array(Image.open(path)).shape for path in tqdm(sorted(glob(f'../input/{directory}/*.png')))]
     with open(cache_path, 'wb') as f:
         pickle.dump(sizes, f)
 
