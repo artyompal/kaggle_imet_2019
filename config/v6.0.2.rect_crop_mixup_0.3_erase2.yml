@@ -5,11 +5,25 @@ model:
     num_classes: 1103
     dropout: 0.3
 
+data:
+    rect_crop:
+        enable: true
+        min_ratio: 0.3
+        max_ratio: 1.0
+        scale_both_dims: false
+
 train:
     csv: '../input/train.csv'
     batch_size: 16
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
+    enable_warmup: true
+    warmup:
+        steps: 5000
+        max_lr: 1e-4
+    mixup:
+        enable: true
+        beta_a: 0.3
 
 test:
     csv: '../input/sample_submission.csv'
@@ -33,8 +47,15 @@ loss:
     name: 'binary_cross_entropy'
 
 augmentations:
+    affine: 'medium'
     hflip: true
     blur: 0.3
-    distortion: 0.2
-    dropout: 0.3
-    noise: 0.3
+    distortion: 0.3
+    noise: 0.4
+    aug_global_prob: 0.5
+    erase:
+        prob: 0.5
+        min_area: 0.02
+        max_area: 0.4
+        min_ratio: 0.3
+        max_ratio: 3.33
