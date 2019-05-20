@@ -481,8 +481,8 @@ def run() -> float:
 
         if args.lr_override != 0:
             set_lr(optimizer, float(args.lr_override))
-        elif 'lr' in config.scheduler.params:
-            set_lr(optimizer, config.scheduler.params.lr)
+        elif 'lr' in config.optimizer.params:
+            set_lr(optimizer, config.optimizer.params.lr)
 
     lr_scheduler = get_scheduler(config.scheduler, optimizer, last_epoch=last_epoch)
     lr_scheduler2 = get_scheduler(config.scheduler2, optimizer, last_epoch=last_epoch) \
