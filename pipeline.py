@@ -41,6 +41,7 @@ from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
 from random_erase import RandomErase
+from aligned_crop import AlignedCrop
 from models import create_model, freeze_layers, unfreeze_layers
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
@@ -76,7 +77,7 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
         folds = np.load(config.train.folds_file)
 
     assert folds.shape[0] == df.shape[0]
-    return df.loc[folds != fold], df.loc[folds == fold]
+    return df.loc[folds != fold].copy(), df.loc[folds == fold].copy()
 
 def get_size(path: str) -> Tuple[int, int]:
     return np.array(Image.open(path)).shape
@@ -132,7 +133,7 @@ def load_data(fold: int) -> Any:
     elif config.augmentations.affine == 'hard':
         augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.50, rotate_limit=45, p=.75))
 
-    if config.augmentations.rect_crop.enable:
+    if not config.use_arbitrary_sizes and config.augmentations.rect_crop.enable:
         augs.append(RandomRectCrop(rect_min_area=config.augmentations.rect_crop.rect_min_area,
                                    rect_min_ratio=config.augmentations.rect_crop.rect_min_ratio,
                                    image_size=config.model.image_size,
@@ -174,22 +175,31 @@ def load_data(fold: int) -> Any:
                                 input_size=config.model.input_size,
                                 p=config.augmentations.erase.prob))
 
+    if not config.use_arbitrary_sizes:
+        random_crop = albu.RandomCrop(height=config.model.input_size,
+                                      width=config.model.input_size)
+        center_crop = albu.CenterCrop(height=config.model.input_size,
+                                      width=config.model.input_size)
+    else:
+        random_crop = AlignedCrop()
+        center_crop = AlignedCrop()
+
     transform_train = albu.Compose([
         albu.PadIfNeeded(config.model.input_size, config.model.input_size),
-        albu.RandomCrop(height=config.model.input_size, width=config.model.input_size),
+        random_crop,
         albu.Compose(augs, p=config.augmentations.global_prob),
         ])
 
     if config.test.num_ttas > 1:
         transform_test = albu.Compose([
             albu.PadIfNeeded(config.model.input_size, config.model.input_size),
-            albu.RandomCrop(height=config.model.input_size, width=config.model.input_size),
+            random_crop,
             albu.HorizontalFlip(),
         ])
     else:
         transform_test = albu.Compose([
             albu.PadIfNeeded(config.model.input_size, config.model.input_size),
-            albu.CenterCrop(height=config.model.input_size, width=config.model.input_size),
+            center_crop
         ])
 
 
@@ -203,7 +213,8 @@ def load_data(fold: int) -> Any:
                                 augmentor=transform_test)
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=config.train.batch_size, shuffle=True,
+        train_dataset, batch_size=config.train.batch_size,
+        shuffle=not config.train.use_arbitrary_sizes,
         num_workers=config.num_workers, drop_last=True)
 
     val_loader = torch.utils.data.DataLoader(

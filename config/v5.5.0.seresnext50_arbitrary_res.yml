@@ -11,6 +11,7 @@ train:
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
     enable_warmup: true
+    use_arbitrary_sizes: true
     warmup:
         steps: 5000
         max_lr: 1e-4

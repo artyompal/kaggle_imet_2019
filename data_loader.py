@@ -26,8 +26,11 @@ class ImageDataset(torch.utils.data.Dataset):
                  augmentor: Any = None, aug_type: str = 'albu') -> None:
         print(f'creating data_loader for {config.version} in mode={mode}')
         assert mode in ['train', 'val', 'test']
+        assert config.test.batch_size % config.test.num_ttas == 0
 
         self.df = dataframe
+        self.df['extra'] = False
+
         self.mode = mode
         self.augmentor = augmentor
         self.aug_type = aug_type
@@ -38,6 +41,18 @@ class ImageDataset(torch.utils.data.Dataset):
         self.input_size = config.model.input_size
         self.rect_crop = config.data.rect_crop
         self.num_tta = config.test.num_ttas if mode == 'test' else 1
+        self.batch_size = config.train.batch_size if mode != 'test' else \
+                          config.test.batch_size / config.test.num_ttas
+
+        if config.train.use_arbitrary_sizes:
+            align = 32
+            self.df['rounded_w'] = self.df.w - self.df.w % align
+            self.df['rounded_h'] = self.df.h - self.df.h % align
+            self.df['size'] = self.df.rounded_w * 1000000 + self.df.rounded_h
+
+            self.create_batches()
+        else:
+            self.batches = self.df
 
         if 'ception' in config.model.arch:
             self.transforms = transforms.Compose([
@@ -51,6 +66,22 @@ class ImageDataset(torch.utils.data.Dataset):
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                       std=[0.229, 0.224, 0.225]),
             ])
+
+    def create_batches(self) -> None:
+        ''' Groups samples into batches of the predefined size. '''
+        dfs = []
+
+        for size, group in self.df.groupby('size'):
+            dfs.append(group)
+            gap = (self.batch_size - len(group) % self.batch_size) % self.batch_size
+
+            if gap:
+                added = group.sample(gap, replace = len(group) < gap)
+                added['extra'] = True
+                dfs.append(added)
+
+        random.shuffle(dfs)
+        self.batches = pd.concat(dfs)
 
     def _transform_image(self, image: Image, index: int) -> torch.Tensor:
         ''' Augments the image. '''
@@ -99,7 +130,7 @@ class ImageDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index: int) -> Any:
         ''' Returns: tuple (sample, target) or just sample. '''
-        filename = self.df.iloc[index, 0]
+        filename = self.batches.iloc[index, 0]
         image = Image.open(os.path.join(self.path, filename + '.png'))
         assert image.mode == 'RGB'
 
@@ -110,11 +141,11 @@ class ImageDataset(torch.utils.data.Dataset):
 
         if self.mode != 'test':
             targets = np.zeros(self.num_classes, dtype=np.float32)
-            labels = list(map(int, self.df.iloc[index, 1].split()))
+            labels = list(map(int, self.batches.iloc[index, 1].split()))
             targets[labels] = 1
             return image, targets
         else:
             return image
 
     def __len__(self) -> int:
-        return self.df.shape[0]
+        return self.batches.shape[0]
