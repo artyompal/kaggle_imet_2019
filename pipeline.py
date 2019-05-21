@@ -181,8 +181,8 @@ def load_data(fold: int) -> Any:
         center_crop = albu.CenterCrop(height=config.model.input_size,
                                       width=config.model.input_size)
     else:
-        random_crop = RandomAlignedCrop()
-        center_crop = RandomAlignedCrop()
+        random_crop = RandomAlignedCrop(config.train.max_image_size)
+        center_crop = RandomAlignedCrop(config.train.max_image_size, center=True)
 
     transform_train = albu.Compose([
         albu.PadIfNeeded(config.model.input_size, config.model.input_size),

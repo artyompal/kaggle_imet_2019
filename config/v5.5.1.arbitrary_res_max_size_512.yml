@@ -7,11 +7,11 @@ model:
 
 train:
     csv: '../input/train.csv'
-    batch_size: 8
+    batch_size: 16
     folds_file: 'folds.npy'
     enable_warmup: true
     use_arbitrary_sizes: true
-    max_image_size: 1024
+    max_image_size: 512
     warmup:
         steps: 5000
         max_lr: 1e-4
@@ -21,7 +21,7 @@ train:
 
 test:
     csv: '../input/sample_submission.csv'
-    batch_size: 8
+    batch_size: 16
     num_ttas: 2
 
 optimizer:
