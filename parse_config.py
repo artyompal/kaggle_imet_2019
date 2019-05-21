@@ -30,9 +30,6 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.model.dropout = 0
 
     cfg.data = edict()
-    cfg.data.train_dir = '../input/train/'
-    cfg.data.test_dir = '../input/test/'
-
     cfg.data.rect_crop = edict()
     cfg.data.rect_crop.enable = False
     cfg.data.min_ratio = 0.08

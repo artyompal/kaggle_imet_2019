@@ -33,7 +33,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.aug_type = aug_type
 
         self.version = config.version
-        self.path = config.data.train_dir
+        self.path = '../input/train/' if mode != 'test' else '../input/test/'
         self.num_classes = config.model.num_classes
         self.input_size = config.model.input_size
         self.rect_crop = config.data.rect_crop
@@ -53,6 +53,7 @@ class ImageDataset(torch.utils.data.Dataset):
             ])
 
     def _transform_image(self, image: Image, index: int) -> torch.Tensor:
+        ''' Augments the image. '''
         image = np.array(image)
 
         if self.rect_crop.enable:
@@ -97,7 +98,7 @@ class ImageDataset(torch.utils.data.Dataset):
         return self.transforms(image)
 
     def __getitem__(self, index: int) -> Any:
-        ''' Returns: tuple (sample, target) '''
+        ''' Returns: tuple (sample, target) or just sample. '''
         filename = self.df.iloc[index, 0]
         image = Image.open(os.path.join(self.path, filename + '.png'))
         assert image.mode == 'RGB'

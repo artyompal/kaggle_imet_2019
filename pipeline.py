@@ -3,7 +3,9 @@
 
 import argparse
 import math
+import multiprocessing as mp
 import os
+import pickle
 import pprint
 import random
 import sys
@@ -11,6 +13,7 @@ import time
 
 from typing import *
 from collections import defaultdict, Counter
+from glob import glob
 
 import numpy as np
 import pandas as pd
@@ -23,6 +26,7 @@ import torch.nn.functional as F
 from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 from easydict import EasyDict as edict
+from PIL import Image
 
 import albumentations as albu
 import parse_config
@@ -43,6 +47,7 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
     import torchcontrib
+
 
 def make_folds(df: pd.DataFrame) -> pd.DataFrame:
     cls_counts = Counter(cls for classes in df['attribute_ids'].str.split() for cls in classes)
@@ -73,6 +78,28 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
     assert folds.shape[0] == df.shape[0]
     return df.loc[folds != fold], df.loc[folds == fold]
 
+def get_size(path: str) -> Tuple[int, int]:
+    return np.array(Image.open(path)).shape
+
+def load_image_sizes(df: pd.DataFrame, path: str) -> pd.DataFrame:
+    ''' Reads image size for every image in dataframe. '''
+    cache_path = f'sizes_{os.path.basename(path)}.pkl'
+    print('image sizes cache:', cache_path)
+
+    if os.path.exists(cache_path):
+        sizes = pickle.load(open(cache_path, 'rb'))
+    else:
+        with mp.Pool() as pool:
+            files = sorted(glob(os.path.join(path, '*.png')))
+            sizes = list(tqdm(pool.imap(get_size, files), total=len(files), disable=IN_KERNEL))
+        if not IN_KERNEL:
+            with open(cache_path, 'wb') as f:
+                pickle.dump(sizes, f)
+
+    df['h'] = [s[0] for s in sizes]
+    df['w'] = [s[1] for s in sizes]
+    return df
+
 def load_data(fold: int) -> Any:
     torch.multiprocessing.set_sharing_strategy('file_system') # type: ignore
     cudnn.benchmark = True # type: ignore
@@ -81,10 +108,13 @@ def load_data(fold: int) -> Any:
     logger.info(pprint.pformat(config))
 
     full_df = pd.read_csv(config.train.csv)
+    full_df = load_image_sizes(full_df, '../input/train')
     print('full_df', full_df.shape)
     train_df, val_df = train_val_split(full_df, fold)
     print('train_df', train_df.shape, 'val_df', val_df.shape)
+
     test_df = pd.read_csv(config.test.csv)
+    test_df = load_image_sizes(test_df, '../input/test')
 
     augs: List[Union[albu.BasicTransform, albu.OneOf]] = []
 
