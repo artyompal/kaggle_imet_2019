@@ -18,7 +18,8 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 
-SAVE_DEBUG_IMAGES = False
+DEBUG_SAVE_IMAGES = False
+DEBUG_SAVE_DATASET = False
 
 
 class ImageDataset(torch.utils.data.Dataset):
@@ -42,7 +43,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.rect_crop = config.data.rect_crop
         self.num_tta = config.test.num_ttas if mode == 'test' else 1
         self.batch_size = config.train.batch_size if mode != 'test' else \
-                          config.test.batch_size / config.test.num_ttas
+                          config.test.batch_size // config.test.num_ttas
 
         if config.train.use_arbitrary_sizes:
             align = 32
@@ -72,16 +73,20 @@ class ImageDataset(torch.utils.data.Dataset):
         dfs = []
 
         for size, group in self.df.groupby('size'):
-            dfs.append(group)
             gap = (self.batch_size - len(group) % self.batch_size) % self.batch_size
 
             if gap:
-                added = group.sample(gap, replace = len(group) < gap)
-                added['extra'] = True
-                dfs.append(added)
+                extra = group.sample(gap, replace = len(group) < gap)
+                extra['extra'] = True
+                group = pd.concat([group, extra])
+
+            dfs.append(group)
 
         random.shuffle(dfs)
         self.batches = pd.concat(dfs)
+
+        if DEBUG_SAVE_DATASET:
+            self.batches.to_csv(f'dataset_{self.mode}.csv')
 
     def _transform_image(self, image: Image, index: int) -> torch.Tensor:
         ''' Augments the image. '''
@@ -122,7 +127,7 @@ class ImageDataset(torch.utils.data.Dataset):
             elif self.aug_type == 'imgaug':
                 image = self.augmentor.augment_image(image)
 
-        if SAVE_DEBUG_IMAGES:
+        if DEBUG_SAVE_IMAGES:
             os.makedirs(f'../debug_images_{self.version}/', exist_ok=True)
             Image.fromarray(image).save(f'../debug_images_{self.version}/{index}.png')
 

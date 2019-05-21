@@ -133,7 +133,7 @@ def load_data(fold: int) -> Any:
     elif config.augmentations.affine == 'hard':
         augs.append(albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.50, rotate_limit=45, p=.75))
 
-    if not config.use_arbitrary_sizes and config.augmentations.rect_crop.enable:
+    if not config.train.use_arbitrary_sizes and config.augmentations.rect_crop.enable:
         augs.append(RandomRectCrop(rect_min_area=config.augmentations.rect_crop.rect_min_area,
                                    rect_min_ratio=config.augmentations.rect_crop.rect_min_ratio,
                                    image_size=config.model.image_size,
@@ -175,7 +175,7 @@ def load_data(fold: int) -> Any:
                                 input_size=config.model.input_size,
                                 p=config.augmentations.erase.prob))
 
-    if not config.use_arbitrary_sizes:
+    if not config.train.use_arbitrary_sizes:
         random_crop = albu.RandomCrop(height=config.model.input_size,
                                       width=config.model.input_size)
         center_crop = albu.CenterCrop(height=config.model.input_size,

@@ -15,9 +15,9 @@ class RandomAlignedCrop(albu.DualTransform):
     def apply(self, img, **params):
         h, w, _ = img.shape
         align = 32
-        gap_h, gap_w = h % self.align, w % self.align
-        y = random.randrange(gap_h)
-        x = random.randrange(gap_w)
+        gap_h, gap_w = h % align, w % align
+        y = random.randrange(gap_h) if gap_h else 0
+        x = random.randrange(gap_w) if gap_w else 0
 
         img = img[y : y + h - gap_h, x : x + w - gap_w]
         assert img.shape[0] % align == 0 and img.shape[1] % align == 0

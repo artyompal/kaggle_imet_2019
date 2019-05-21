@@ -7,7 +7,7 @@ model:
 
 train:
     csv: '../input/train.csv'
-    batch_size: 16
+    batch_size: 4
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
     enable_warmup: true
