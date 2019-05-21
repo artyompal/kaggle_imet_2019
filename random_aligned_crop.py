@@ -21,6 +21,7 @@ class RandomAlignedCrop(albu.DualTransform):
 
         img = img[y : y + h - gap_h, x : x + w - gap_w]
         assert img.shape[0] % align == 0 and img.shape[1] % align == 0
+        # print('cropped image from', (h, w, 3), 'to', img.shape)
         return img
 
     def get_params(self):

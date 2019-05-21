@@ -21,7 +21,7 @@ train:
 
 test:
     csv: '../input/sample_submission.csv'
-    batch_size: 32
+    batch_size: 8
     num_ttas: 2
 
 optimizer:

@@ -42,8 +42,13 @@ class ImageDataset(torch.utils.data.Dataset):
         self.input_size = config.model.input_size
         self.rect_crop = config.data.rect_crop
         self.num_tta = config.test.num_ttas if mode == 'test' else 1
-        self.batch_size = config.train.batch_size if mode != 'test' else \
-                          config.test.batch_size // config.test.num_ttas
+
+        if mode == 'train':
+            self.batch_size = config.train.batch_size
+        elif mode == 'val':
+            self.batch_size = config.test.batch_size
+        else:
+            self.batch_size = config.test.batch_size // config.test.num_ttas
 
         if config.train.use_arbitrary_sizes:
             align = 32
@@ -148,6 +153,7 @@ class ImageDataset(torch.utils.data.Dataset):
             targets = np.zeros(self.num_classes, dtype=np.float32)
             labels = list(map(int, self.batches.iloc[index, 1].split()))
             targets[labels] = 1
+            # print('fetched', filename, 'index', index, 'shape', image.shape)
             return image, targets
         else:
             return image
