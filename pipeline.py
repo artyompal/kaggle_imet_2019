@@ -176,10 +176,10 @@ def load_data(fold: int) -> Any:
                                 p=config.augmentations.erase.prob))
 
     if not config.train.use_arbitrary_sizes:
-        random_crop = albu.RandomCrop(height=config.model.input_size,
-                                      width=config.model.input_size)
-        center_crop = albu.CenterCrop(height=config.model.input_size,
-                                      width=config.model.input_size)
+        random_crop: Any = albu.RandomCrop(height=config.model.input_size,
+                                           width=config.model.input_size)
+        center_crop: Any = albu.CenterCrop(height=config.model.input_size,
+                                           width=config.model.input_size)
     else:
         random_crop = RandomAlignedCrop(config.train.max_image_size)
         center_crop = RandomAlignedCrop(config.train.max_image_size, center=True)
