@@ -41,7 +41,7 @@ from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
 from random_erase import RandomErase
-from aligned_crop import RandomAlignedCrop
+from random_aligned_crop import RandomAlignedCrop
 from models import create_model, freeze_layers, unfreeze_layers
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
