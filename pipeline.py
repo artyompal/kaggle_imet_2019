@@ -41,7 +41,7 @@ from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
 from random_erase import RandomErase
-from aligned_crop import AlignedCrop
+from aligned_crop import RandomAlignedCrop
 from models import create_model, freeze_layers, unfreeze_layers
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
@@ -181,8 +181,8 @@ def load_data(fold: int) -> Any:
         center_crop = albu.CenterCrop(height=config.model.input_size,
                                       width=config.model.input_size)
     else:
-        random_crop = AlignedCrop()
-        center_crop = AlignedCrop()
+        random_crop = RandomAlignedCrop()
+        center_crop = RandomAlignedCrop()
 
     transform_train = albu.Compose([
         albu.PadIfNeeded(config.model.input_size, config.model.input_size),
