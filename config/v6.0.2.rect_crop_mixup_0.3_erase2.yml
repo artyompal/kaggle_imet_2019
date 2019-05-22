@@ -38,7 +38,7 @@ optimizer:
 scheduler:
     name: 'reduce_lr_on_plateau'
     params:
-        factor: 0.2
+        factor: 0.3
         patience: 2
         min_lr: 3e-7
         threshold: 1e-3
