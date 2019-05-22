@@ -479,8 +479,8 @@ def run() -> float:
         last_epoch = last_checkpoint['epoch']
         logger.info(f'loaded the model from epoch {last_epoch}')
 
-        if args.lr_override != 0:
-            set_lr(optimizer, float(args.lr_override))
+        if args.lr != 0:
+            set_lr(optimizer, float(args.lr))
         elif 'lr' in config.optimizer.params:
             set_lr(optimizer, config.optimizer.params.lr)
 
@@ -569,10 +569,14 @@ if __name__ == '__main__':
     parser.add_argument('--fold', help='fold number', type=int, default=0)
     parser.add_argument('--gen_predict', help='make predictions for the testset and return', action='store_true')
     parser.add_argument('--summary', help='show model summary', action='store_true')
-    parser.add_argument('--lr_override', help='override learning rate', type=float, default=0)
+    parser.add_argument('--lr', help='override learning rate', type=float, default=0)
+    parser.add_argument('--num_epochs', help='override number of epochs', type=int, default=0)
     args = parser.parse_args()
 
     config = parse_config.load(args.config, args)
+
+    if args.num_epochs:
+        config.train.num_epochs = args.num_epochs
 
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)

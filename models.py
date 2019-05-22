@@ -29,6 +29,13 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
             model.output = nn.Sequential(
                  nn.Dropout(dropout),
                  nn.Linear(model.output[-1].in_features, config.model.num_classes))
+    elif 'ception' in config.model.arch:
+        if dropout < 0.1:
+            model.output = nn.Linear(model.output[-1].in_features, config.model.num_classes)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(model.output[-1].in_features, config.model.num_classes))
     else:
         if dropout < 0.1:
             model.output = nn.Linear(model.output.in_features, config.model.num_classes)
@@ -38,7 +45,6 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
                  nn.Linear(model.output.in_features, config.model.num_classes))
 
     model = torch.nn.DataParallel(model).cuda()
-    model.cuda()
 
     if args.summary:
         torchsummary.summary(model, (3, config.model.input_size, config.model.input_size))
