@@ -20,7 +20,7 @@ train:
     enable_warmup: true
     warmup:
         steps: 5000
-        max_lr: 1e-4
+        max_lr: 3e-4
     mixup:
         enable: true
         beta_a: 0.3
@@ -33,7 +33,7 @@ test:
 optimizer:
     name: 'adam'
     params:
-        lr: 1e-4
+        lr: 3e-4
 
 scheduler:
     name: 'reduce_lr_on_plateau'
