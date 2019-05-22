@@ -20,7 +20,11 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
     dropout = config.model.dropout
 
     model = get_model(config.model.arch, pretrained=args.weights is None)
-    model.features[-1] = nn.AdaptiveAvgPool2d(1)
+
+    if config.model.arch == 'xception':
+        model.features[-1].pool = nn.AdaptiveAvgPool2d(1)
+    else:
+        model.features[-1] = nn.AdaptiveAvgPool2d(1)
 
     if config.model.arch == 'pnasnet5large':
         if dropout == 0.0:
@@ -31,11 +35,11 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
                  nn.Linear(model.output[-1].in_features, config.model.num_classes))
     elif config.model.arch == 'xception':
         if dropout < 0.1:
-            model.output = nn.Linear(1024, config.model.num_classes)
+            model.output = nn.Linear(2048, config.model.num_classes)
         else:
             model.output = nn.Sequential(
                  nn.Dropout(dropout),
-                 nn.Linear(1024, config.model.num_classes))
+                 nn.Linear(2048, config.model.num_classes))
     elif config.model.arch.startswith('inception'):
         if dropout < 0.1:
             model.output = nn.Linear(model.output[-1].in_features, config.model.num_classes)
