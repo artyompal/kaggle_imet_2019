@@ -154,7 +154,7 @@ def load_data(fold: int) -> Any:
         transform_test = albu.Compose([
             albu.PadIfNeeded(config.model.input_size, config.model.input_size),
             albu.RandomCrop(height=config.model.input_size, width=config.model.input_size),
-            albu.HorizontalFlip(),
+            albu.HorizontalFlip(0.5),
         ])
     else:
         transform_test = albu.Compose([
