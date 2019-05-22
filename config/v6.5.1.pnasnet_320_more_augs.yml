@@ -7,8 +7,8 @@ model:
 
 data:
     rect_crop:
-        enable: true
-        min_ratio: 0.5
+        enable: false
+        min_ratio: 0.3
         max_ratio: 1.0
         scale_both_dims: false
 
@@ -33,7 +33,7 @@ test:
 optimizer:
     name: 'adam'
     params:
-        lr: 1e-4
+        lr: 3e-4
 
 scheduler:
     name: 'reduce_lr_on_plateau'
@@ -49,9 +49,10 @@ loss:
 augmentations:
     hflip: true
 #     affine: 'medium'
-#     blur: 0.3
-#     distortion: 0.2
-#     noise: 0.3
+    blur: 0.2
+    distortion: 0.2
+    noise: 0.2
+    global_prob: 0.5
     erase:
         prob: 0.5
         min_area: 0.02

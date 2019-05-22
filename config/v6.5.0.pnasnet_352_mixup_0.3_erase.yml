@@ -1,7 +1,7 @@
 
 model:
     arch: 'pnasnet5large'
-    input_size: 320
+    input_size: 352
     num_classes: 1103
     dropout: 0.5
 
@@ -14,7 +14,7 @@ data:
 
 train:
     csv: '../input/train.csv'
-    batch_size: 8
+    batch_size: 6
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
     enable_warmup: true
@@ -33,7 +33,7 @@ test:
 optimizer:
     name: 'adam'
     params:
-        lr: 1e-4
+        lr: 3e-4
 
 scheduler:
     name: 'reduce_lr_on_plateau'
@@ -48,10 +48,10 @@ loss:
 
 augmentations:
     hflip: true
-#     affine: 'medium'
-    blur: 0.2
+    affine: 'medium'
+    blur: 0.3
     distortion: 0.2
-    noise: 0.2
+    noise: 0.3
     global_prob: 0.5
     erase:
         prob: 0.5
