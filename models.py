@@ -29,7 +29,14 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
             model.output = nn.Sequential(
                  nn.Dropout(dropout),
                  nn.Linear(model.output[-1].in_features, config.model.num_classes))
-    elif 'ception' in config.model.arch:
+    elif config.model.arch == 'xception':
+        if dropout < 0.1:
+            model.output = nn.Linear(1024, config.model.num_classes)
+        else:
+            model.output = nn.Sequential(
+                 nn.Dropout(dropout),
+                 nn.Linear(1024, config.model.num_classes))
+    elif config.model.arch.startswith('inception'):
         if dropout < 0.1:
             model.output = nn.Linear(model.output[-1].in_features, config.model.num_classes)
         else:
