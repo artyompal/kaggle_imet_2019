@@ -1,7 +1,7 @@
 
 model:
     arch: 'pnasnet5large'
-    input_size: 352
+    input_size: 320
     num_classes: 1103
     dropout: 0.5
 
@@ -14,7 +14,7 @@ data:
 
 train:
     csv: '../input/train.csv'
-    batch_size: 16
+    batch_size: 8
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
     enable_warmup: true
