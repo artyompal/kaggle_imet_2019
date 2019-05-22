@@ -1,7 +1,7 @@
 
 model:
     arch: 'inceptionresnetv2'
-    input_size: 362 # 394
+    input_size: 363
     num_classes: 1103
     dropout: 0.5
 
