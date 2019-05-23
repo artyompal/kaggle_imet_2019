@@ -1,9 +1,9 @@
 
 model:
-    arch: 'resnet50'
-    input_size: 320
+    arch: 'seresnext50_32x4d'
+    input_size: 288
     num_classes: 1103
-    dropout: 0
+    dropout: 0.5
 
 train:
     csv: '../input/train.csv'
