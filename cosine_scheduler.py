@@ -1,10 +1,11 @@
-from torch.optim import Optimizer
 import math
 import torch
 
+from typing import Any, Tuple
+from torch.optim import Optimizer
 
 class CosineLRWithRestarts():
-    """Decays learning rate with cosine annealing, normalizes weight decay
+    ''' Decays learning rate with cosine annealing, normalizes weight decay
     hyperparameter value, implements restarts.
     https://arxiv.org/abs/1711.05101
 
@@ -27,7 +28,7 @@ class CosineLRWithRestarts():
         >>>         optimizer.step()
         >>>         scheduler.step()
         >>>     validate(...)
-    """
+    '''
 
     def __init__(self, optimizer, batch_size, epoch_size, restart_period=100,
                  t_mult=2, last_epoch=-1, eta_threshold=1000, verbose=False,
@@ -63,10 +64,8 @@ class CosineLRWithRestarts():
         self.t_epoch = -1
         self.min_lr = min_lr
 
-    def _schedule_eta(self):
-        """
-        Threshold value could be adjusted to shrink eta_min and eta_max values.
-        """
+    def _schedule_eta(self) -> Tuple[float, float]:
+        ''' Threshold value could be adjusted to shrink eta_min and eta_max values. '''
         eta_min = 0
         eta_max = 1
         if self.restarts <= self.eta_threshold:
@@ -76,7 +75,7 @@ class CosineLRWithRestarts():
             k = d * 0.09
             return (eta_min + k, eta_max - k)
 
-    def get_lr(self, t_cur):
+    def get_lr(self, t_cur: int) -> Any:
         eta_min, eta_max = self._schedule_eta()
 
         eta_t = (eta_min + 0.5 * (eta_max - eta_min)
@@ -90,29 +89,36 @@ class CosineLRWithRestarts():
         weight_decays = [base_weight_decay * eta_t * weight_decay_norm_multi
                          for base_weight_decay in self.base_weight_decays]
 
-        if self.t_epoch % self.restart_period < self.t_epoch:
-            if self.verbose:
-                print("restart at epoch {}".format(self.last_epoch))
-            self.restart_period = int(math.ceil(self.t_mult * self.restart_period))
-            self.restarts += 1
-            self.t_epoch = 0
-
         return zip(lrs, weight_decays)
 
-    def _set_batch_size(self):
+    def _set_batch_size(self) -> None:
         d, r = divmod(self.epoch_size, self.batch_size)
         batches_in_epoch = d + 2 if r > 0 else d + 1
         self.batch_increment = iter(torch.linspace(0, 1, batches_in_epoch))
 
-    def epoch_step(self):
+    def epoch_step(self) -> bool:
+        ''' Returns true if we started new cosine anneal period this epoch. '''
         self.last_epoch += 1
         self.t_epoch += 1
         self._set_batch_size()
-        self.step()
+        return self.step()
 
-    def step(self):
+    def step(self) -> bool:
+        res = False
         t_cur = self.t_epoch + next(self.batch_increment)
+
         for param_group, (lr, weight_decay) in zip(self.optimizer.param_groups,
                                                    self.get_lr(t_cur)):
             param_group['lr'] = max(lr, self.min_lr)
             param_group['weight_decay'] = weight_decay
+
+        if self.t_epoch % self.restart_period < self.t_epoch:
+            res = True
+            if self.verbose:
+                print("restart at epoch {}".format(self.last_epoch))
+
+            self.restart_period = int(math.ceil(self.t_mult * self.restart_period))
+            self.restarts += 1
+            self.t_epoch = 0
+
+        return res

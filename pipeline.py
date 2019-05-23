@@ -534,7 +534,10 @@ def run() -> float:
                 last_lr = lr
 
         if isinstance(lr_scheduler, CosineLRWithRestarts):
-            lr_scheduler.epoch_step()
+            restart = lr_scheduler.epoch_step()
+            if restart:
+                logger.info('cosine annealing restarted, resetting the best metric')
+                best_score = 0.600
 
         train_epoch(train_loader, model, criterion, optimizer, epoch,
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
