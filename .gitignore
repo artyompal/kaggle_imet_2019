@@ -3,6 +3,7 @@ submission.py
 *.csv
 *.csv.py
 sub_*.py
+*.pkl
 *.pth
 *.npy
 *.npz
