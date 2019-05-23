@@ -60,9 +60,9 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.warmup.steps = None
     cfg.train.warmup.max_lr = None
 
-    cfg.train.swa = edict()
-    cfg.train.swa.enable = False
-    cfg.train.swa.period = None
+    # cfg.train.swa = edict()
+    # cfg.train.swa.enable = False
+    # cfg.train.swa.period = None
 
     cfg.train.lr_finder = edict()
     cfg.train.lr_finder.num_steps = 10 ** 9     # one epoch max

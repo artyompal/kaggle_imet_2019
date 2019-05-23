@@ -42,8 +42,8 @@ from cosine_scheduler import CosineLRWithRestarts
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
-if not IN_KERNEL:
-    import torchcontrib
+# if not IN_KERNEL:
+#     import torchcontrib
 
 def make_folds(df: pd.DataFrame) -> pd.DataFrame:
     cls_counts = Counter(cls for classes in df['attribute_ids'].str.split() for cls in classes)
@@ -352,8 +352,8 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
                         f'F2 {avg_score.val:.4f} ({avg_score.avg:.4f})'
                         + lr_str)
 
-    if config.train.swa.enable and epoch > 0 and epoch % config.train.swa.period == 0:
-        optimizer.update_swa()
+    # if config.train.swa.enable and epoch > 0 and epoch % config.train.swa.period == 0:
+    #     optimizer.update_swa()
 
     logger.info(f' * average F2 on train {avg_score.avg:.4f}')
 
@@ -465,8 +465,8 @@ def run() -> float:
 
     optimizer = get_optimizer(config, model.parameters())
 
-    if config.train.swa.enable:
-        optimizer = torchcontrib.optim.SWA(optimizer)
+    # if config.train.swa.enable:
+    #     optimizer = torchcontrib.optim.SWA(optimizer)
 
     if args.weights is None:
         last_epoch = -1
@@ -491,8 +491,9 @@ def run() -> float:
         lr_scheduler2 = get_scheduler(config.scheduler2, optimizer, last_epoch=last_epoch) \
                         if config.scheduler2.name else None
     else:
-        epoch_size = min(len(train_loader),
-                         config.train.batch_size * config.train.max_steps_per_epoch)
+        epoch_size = min(len(train_loader), config.train.max_steps_per_epoch) \
+                     * config.train.batch_size
+                     
         set_lr(optimizer, float(config.cosine.start_lr))
         lr_scheduler = CosineLRWithRestarts(optimizer,
                                             config.train.batch_size,
