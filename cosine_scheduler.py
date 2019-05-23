@@ -19,13 +19,13 @@ class CosineLRWithRestarts():
     Example:
         >>> scheduler = CosineLRWithRestarts(optimizer, 32, 1024, restart_period=5, t_mult=1.2)
         >>> for epoch in range(100):
-        >>>     scheduler.step()
+        >>>     scheduler.epoch_step()
         >>>     train(...)
         >>>         ...
         >>>         optimizer.zero_grad()
         >>>         loss.backward()
         >>>         optimizer.step()
-        >>>         scheduler.batch_step()
+        >>>         scheduler.step()
         >>>     validate(...)
     """
 
@@ -35,6 +35,7 @@ class CosineLRWithRestarts():
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
+
         self.optimizer = optimizer
         if last_epoch == -1:
             for group in optimizer.param_groups:
@@ -45,6 +46,7 @@ class CosineLRWithRestarts():
                     raise KeyError("param 'initial_lr' is not specified "
                                    "in param_groups[{}] when resuming an"
                                    " optimizer".format(i))
+
         self.base_lrs = list(map(lambda group: group['initial_lr'],
                                  optimizer.param_groups))
 
@@ -90,8 +92,8 @@ class CosineLRWithRestarts():
 
         if self.t_epoch % self.restart_period < self.t_epoch:
             if self.verbose:
-                print("Restart at epoch {}".format(self.last_epoch))
-            self.restart_period *= self.t_mult
+                print("restart at epoch {}".format(self.last_epoch))
+            self.restart_period = int(math.ceil(self.t_mult * self.restart_period))
             self.restarts += 1
             self.t_epoch = 0
 
@@ -102,13 +104,13 @@ class CosineLRWithRestarts():
         batches_in_epoch = d + 2 if r > 0 else d + 1
         self.batch_increment = iter(torch.linspace(0, 1, batches_in_epoch))
 
-    def step(self):
+    def epoch_step(self):
         self.last_epoch += 1
         self.t_epoch += 1
         self._set_batch_size()
-        self.batch_step()
+        self.step()
 
-    def batch_step(self):
+    def step(self):
         t_cur = self.t_epoch + next(self.batch_increment)
         for param_group, (lr, weight_decay) in zip(self.optimizer.param_groups,
                                                    self.get_lr(t_cur)):

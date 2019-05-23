@@ -5,6 +5,8 @@ import torch.optim.lr_scheduler as lr_sched
 
 from typing import Any
 
+from cosine_scheduler import CosineLRWithRestarts
+
 
 def step(optimizer, last_epoch, step_size=10, gamma=0.1, **_) -> Any:
     return lr_sched.StepLR(optimizer, step_size=step_size, gamma=gamma,
@@ -31,10 +33,6 @@ def reduce_lr_on_plateau(optimizer, last_epoch, mode='max', factor=0.1,
                                       threshold_mode=threshold_mode,
                                       cooldown=cooldown, min_lr=min_lr)
 
-def cosine(optimizer, last_epoch, T_max=50, eta_min=0.00001, **_) -> Any:
-    return lr_sched.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min,
-                                          last_epoch=last_epoch)
-
 def cyclic_lr(optimizer, last_epoch, base_lr=0.001, max_lr=0.01,
               step_size_up=2000, step_size_down=None, mode='triangular',
               gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=True,
@@ -52,7 +50,9 @@ def get_scheduler(config, optimizer, last_epoch=-1):
 
 def is_scheduler_continuous(scheduler) -> bool:
     return type(scheduler) in [lr_sched.ExponentialLR,
-                               lr_sched.CosineAnnealingLR, lr_sched.CyclicLR]
+                               lr_sched.CosineAnnealingLR,
+                               lr_sched.CyclicLR,
+                               CosineLRWithRestarts]
 
 def get_warmup_scheduler(config, optimizer) -> Any:
     return lr_sched.CyclicLR(optimizer, base_lr=0, max_lr=config.train.warmup.max_lr,

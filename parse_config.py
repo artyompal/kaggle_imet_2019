@@ -41,10 +41,10 @@ def _get_default_config(filename: str, args: Any) -> edict:
 
     cfg.train = edict()
     cfg.train.batch_size = 32 * torch.cuda.device_count()
-    cfg.train.num_epochs = 2 ** 32
+    cfg.train.num_epochs = 10 ** 9
     cfg.train.shuffle = True
     cfg.train.images_per_class = None
-    cfg.train.max_steps_per_epoch = None
+    cfg.train.max_steps_per_epoch = 10 ** 9
     cfg.train.log_freq = 100
     cfg.train.min_lr = 3e-7
     cfg.train.use_balancing_sampler = False
@@ -65,7 +65,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.swa.period = None
 
     cfg.train.lr_finder = edict()
-    cfg.train.lr_finder.num_steps = 2 ** 32 # one epoch
+    cfg.train.lr_finder.num_steps = 10 ** 9     # one epoch max
     cfg.train.lr_finder.beta = 0.98
     cfg.train.lr_finder.init_value = 1e-8
     cfg.train.lr_finder.final_value = 10
@@ -89,6 +89,10 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.scheduler2 = edict()
     cfg.scheduler2.name = ''
     cfg.scheduler2.params = edict()
+
+    cfg.cosine = edict()
+    cfg.cosine.period = 1
+    cfg.cosine.period_mult = 1.0
 
     cfg.loss = edict()
     cfg.loss.name = 'none'

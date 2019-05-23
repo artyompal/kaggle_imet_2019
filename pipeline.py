@@ -38,6 +38,7 @@ from metrics import F_score
 from random_rect_crop import RandomRectCrop
 from random_erase import RandomErase
 from models import create_model, freeze_layers, unfreeze_layers
+from cosine_scheduler import CosineLRWithRestarts
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
@@ -303,7 +304,7 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
     optimizer.zero_grad()
 
     num_steps = len(train_loader)
-    if max_steps is not None:
+    if max_steps:
         num_steps = min(max_steps, num_steps)
     num_steps -= num_steps % config.train.accum_batches_num
 
@@ -484,10 +485,21 @@ def run() -> float:
         elif 'lr' in config.optimizer.params:
             set_lr(optimizer, config.optimizer.params.lr)
 
-    lr_scheduler = get_scheduler(config.scheduler, optimizer, last_epoch=
-                                 (last_epoch if config.scheduler.name != 'cosine' else -1))
-    lr_scheduler2 = get_scheduler(config.scheduler2, optimizer, last_epoch=last_epoch) \
-                    if config.scheduler2.name else None
+    if not args.cosine:
+        lr_scheduler = get_scheduler(config.scheduler, optimizer, last_epoch=
+                                     (last_epoch if config.scheduler.name != 'cosine' else -1))
+        lr_scheduler2 = get_scheduler(config.scheduler2, optimizer, last_epoch=last_epoch) \
+                        if config.scheduler2.name else None
+    else:
+        epoch_size = min(len(train_loader),
+                         config.train.batch_size * config.train.max_steps_per_epoch)
+        set_lr(optimizer, float(config.cosine.start_lr))
+        lr_scheduler = CosineLRWithRestarts(optimizer,
+                                            config.train.batch_size,
+                                            epoch_size,
+                                            restart_period=config.cosine.period,
+                                            t_mult=config.cosine.period_mult)
+        lr_scheduler2 = None
 
     if args.gen_predict:
         print('inference mode')
@@ -520,6 +532,9 @@ def run() -> float:
                 logger.info(f'checkpoint loaded: {best_model_path}')
                 set_lr(optimizer, lr)
                 last_lr = lr
+
+        if isinstance(lr_scheduler, CosineLRWithRestarts):
+            lr_scheduler.epoch_step()
 
         train_epoch(train_loader, model, criterion, optimizer, epoch,
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
@@ -571,12 +586,16 @@ if __name__ == '__main__':
     parser.add_argument('--summary', help='show model summary', action='store_true')
     parser.add_argument('--lr', help='override learning rate', type=float, default=0)
     parser.add_argument('--num_epochs', help='override number of epochs', type=int, default=0)
+    parser.add_argument('--cosine', help='enable cosine annealing', action='store_true')
     args = parser.parse_args()
 
     config = parse_config.load(args.config, args)
 
     if args.num_epochs:
         config.train.num_epochs = args.num_epochs
+
+    if args.cosine:
+        assert args.weights is not None
 
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
