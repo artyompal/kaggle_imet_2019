@@ -3,7 +3,7 @@ model:
     arch: 'seresnext50_32x4d'
     input_size: 288
     num_classes: 1103
-    dropout: 0.5
+    dropout: 0
 
 train:
     csv: '../input/train.csv'
