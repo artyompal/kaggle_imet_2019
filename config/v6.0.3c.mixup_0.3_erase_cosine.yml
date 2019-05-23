@@ -37,7 +37,7 @@ scheduler:
         threshold: 1e-3
 
 cosine:
-    start_lr: 2e-5
+    start_lr: 5e-5
     period: 4
     period_mult: 1.1
 
