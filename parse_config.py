@@ -93,6 +93,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.cosine = edict()
     cfg.cosine.period = 1
     cfg.cosine.period_mult = 1.0
+    cfg.cosine.default_metric_val = 0.6
 
     cfg.loss = edict()
     cfg.loss.name = 'none'

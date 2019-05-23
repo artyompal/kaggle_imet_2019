@@ -39,6 +39,7 @@ from random_rect_crop import RandomRectCrop
 from random_erase import RandomErase
 from models import create_model, freeze_layers, unfreeze_layers
 from cosine_scheduler import CosineLRWithRestarts
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
@@ -493,7 +494,7 @@ def run() -> float:
     else:
         epoch_size = min(len(train_loader), config.train.max_steps_per_epoch) \
                      * config.train.batch_size
-                     
+
         set_lr(optimizer, float(config.cosine.start_lr))
         lr_scheduler = CosineLRWithRestarts(optimizer,
                                             config.train.batch_size,
@@ -538,18 +539,18 @@ def run() -> float:
             restart = lr_scheduler.epoch_step()
             if restart:
                 logger.info('cosine annealing restarted, resetting the best metric')
-                best_score = 0.600
+                best_score = config.cosine.default_metric_val
 
         train_epoch(train_loader, model, criterion, optimizer, epoch,
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
         score, _, _ = validate(val_loader, model, epoch)
 
-        if config.scheduler.name == 'reduce_lr_on_plateau':
+        if type(lr_scheduler) == ReduceLROnPlateau:
             lr_scheduler.step(metrics=score)
         elif not is_scheduler_continuous(lr_scheduler):
             lr_scheduler.step()
 
-        if config.scheduler2.name == 'reduce_lr_on_plateau':
+        if type(lr_scheduler2) == ReduceLROnPlateau:
             lr_scheduler2.step(metrics=score)
         elif lr_scheduler2 and not is_scheduler_continuous(lr_scheduler2):
             lr_scheduler2.step()
