@@ -25,7 +25,7 @@ train:
         enable: true
         beta_a: 0.3
     lr_decay_coeff: 0.2
-    lr_decay_milestones: [6, 15, 24]
+    lr_decay_milestones: [12, 24, 30]
 
 test:
     csv: '../input/sample_submission.csv'
