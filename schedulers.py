@@ -37,9 +37,13 @@ def cyclic_lr(optimizer, last_epoch, base_lr=0.001, max_lr=0.01,
               step_size_up=2000, step_size_down=None, mode='triangular',
               gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=False,
               base_momentum=0.8, max_momentum=0.9, coeff=1, **_) -> Any:
+    def exp_range_scale_fn(x):
+        res = gamma ** (x - 1)
+        return res
+
     return lr_sched.CyclicLR(optimizer, base_lr=base_lr*coeff, max_lr=max_lr*coeff,
                              step_size_up=step_size_up, step_size_down=
-                             step_size_down, mode=mode, gamma=gamma,
+                             step_size_down, mode=mode, scale_fn=exp_range_scale_fn,
                              scale_mode=scale_mode, cycle_momentum=
                              cycle_momentum, base_momentum=base_momentum,
                              max_momentum=max_momentum, last_epoch=last_epoch)
