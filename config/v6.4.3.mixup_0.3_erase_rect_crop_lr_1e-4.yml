@@ -3,7 +3,7 @@ model:
     arch: 'xception'
     input_size: 363
     num_classes: 1103
-    dropout: 0.5
+    dropout: 0
 
 data:
     rect_crop:
