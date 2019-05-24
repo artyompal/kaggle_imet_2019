@@ -1,7 +1,7 @@
 
 model:
     arch: 'xception'
-    input_size: 363
+    input_size: 331
     num_classes: 1103
     dropout: 0
 
