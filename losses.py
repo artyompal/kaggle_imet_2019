@@ -69,6 +69,7 @@ def focal_loss() -> Any:
 def f2_loss() -> Any:
     return FScoreLoss(beta = 2)
 
+
 class MixedBCEFocalLoss(nn.Module):
     def __init__(self, weight: float) -> None:
         super().__init__()
@@ -94,6 +95,20 @@ def mixed_bce_focal(weight: float = 0.3) -> Any:
 
 def mixed_bce_f2(weight: float = 0.3) -> Any:
     return MixedBCEF2Loss(weight)
+
+
+class ForgivingLoss(nn.Module):
+    def __init__(self, weight: float) -> None:
+        super().__init__()
+        self.bce_loss = binary_cross_entropy()
+        self.weight = weight
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        return self.bce_loss(logits, labels) + self.bce_loss(logits * labels, labels) * self.weight
+
+def forgiving_loss(weight: float = 1.0) -> Any:
+    return ForgivingLoss(weight)
+
 
 def get_loss(config: edict) -> Any:
     f = globals().get(config.loss.name)
