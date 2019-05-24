@@ -35,7 +35,7 @@ def reduce_lr_on_plateau(optimizer, last_epoch, mode='max', factor=0.1,
 
 def cyclic_lr(optimizer, last_epoch, base_lr=0.001, max_lr=0.01,
               step_size_up=2000, step_size_down=None, mode='triangular',
-              gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=True,
+              gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=False,
               base_momentum=0.8, max_momentum=0.9, coeff=1, **_) -> Any:
     return lr_sched.CyclicLR(optimizer, base_lr=base_lr*coeff, max_lr=max_lr*coeff,
                              step_size_up=step_size_up, step_size_down=
