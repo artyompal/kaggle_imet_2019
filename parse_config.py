@@ -99,6 +99,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
 
     cfg.loss = edict()
     cfg.loss.name = 'none'
+    cfg.loss.params = edict()
 
     cfg.augmentations = edict()
     cfg.augmentations.global_prob = 1.0

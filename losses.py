@@ -9,19 +9,19 @@ import torch.nn.functional as F
 from easydict import EasyDict as edict
 
 
-def cross_entropy() -> Any:
+def cross_entropy(**_) -> Any:
     return torch.nn.CrossEntropyLoss()
 
-def binary_cross_entropy() -> Any:
+def binary_cross_entropy(**_) -> Any:
     return torch.nn.BCEWithLogitsLoss()
 
-def mse_loss() -> Any:
+def mse_loss(**_) -> Any:
     return torch.nn.MSELoss()
 
-def l1_loss() -> Any:
+def l1_loss(**_) -> Any:
     return torch.nn.L1Loss()
 
-def smooth_l1_loss() -> Any:
+def smooth_l1_loss(**_) -> Any:
     return torch.nn.SmoothL1Loss()
 
 class FocalLoss(nn.Module):
@@ -63,10 +63,10 @@ class FScoreLoss(nn.Module):
         loss = fs.sum() / batch_size
         return 1 - loss
 
-def focal_loss() -> Any:
+def focal_loss(**_) -> Any:
     return FocalLoss()
 
-def f2_loss() -> Any:
+def f2_loss(**_) -> Any:
     return FScoreLoss(beta = 2)
 
 
@@ -90,10 +90,10 @@ class MixedBCEF2Loss(nn.Module):
     def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         return self.loss1(logits, labels) + self.loss2(logits, labels) * self.weight
 
-def mixed_bce_focal(weight: float = 0.3) -> Any:
+def mixed_bce_focal(weight: float = 0.3, **_) -> Any:
     return MixedBCEFocalLoss(weight)
 
-def mixed_bce_f2(weight: float = 0.3) -> Any:
+def mixed_bce_f2(weight: float = 0.3, **_) -> Any:
     return MixedBCEF2Loss(weight)
 
 
@@ -106,10 +106,10 @@ class ForgivingLoss(nn.Module):
     def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         return self.bce_loss(logits, labels) + self.bce_loss(logits * labels, labels) * self.weight
 
-def forgiving_loss(weight: float = 1.0) -> Any:
+def forgiving_loss(weight: float = 1.0, **_) -> Any:
     return ForgivingLoss(weight)
 
 
 def get_loss(config: edict) -> Any:
     f = globals().get(config.loss.name)
-    return f()
+    return f(**config.optimizer.params)
