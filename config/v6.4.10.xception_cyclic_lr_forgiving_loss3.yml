@@ -1,0 +1,59 @@
+
+model:
+    arch: 'xception'
+    input_size: 363
+    num_classes: 1103
+    dropout: 0
+
+# data:
+#     rect_crop:
+#         enable: true
+#         min_ratio: 0.5
+#         max_ratio: 1.0
+#         scale_both_dims: false
+
+train:
+    csv: '../input/train.csv'
+    batch_size: 16
+    folds_file: 'folds.npy'
+    max_steps_per_epoch: 15000
+    enable_warmup: false
+    warmup:
+        steps: 5000
+        max_lr: 2e-5
+    mixup:
+        enable: true
+        beta_a: 0.3
+
+test:
+    csv: '../input/sample_submission.csv'
+    batch_size: 32
+    num_ttas: 2
+
+optimizer:
+    name: 'adam'
+
+scheduler:
+    name: 'cyclic_lr'
+    params:
+        max_lr: 2e-4
+        base_lr: 1e-6
+        gamma: 0.5
+        step_size_up: 13657     # 5 epochs
+        mode: 'triangular'
+
+loss:
+    name: 'forgiving_loss'
+
+augmentations:
+    hflip: true
+#     affine: 'medium'
+#     blur: 0.3
+#     distortion: 0.2
+#     noise: 0.3
+    erase:
+        prob: 0.5
+        min_area: 0.02
+        max_area: 0.4
+        min_ratio: 0.3
+        max_ratio: 3.33
