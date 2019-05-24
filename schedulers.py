@@ -36,17 +36,17 @@ def reduce_lr_on_plateau(optimizer, last_epoch, mode='max', factor=0.1,
 def cyclic_lr(optimizer, last_epoch, base_lr=0.001, max_lr=0.01,
               step_size_up=2000, step_size_down=None, mode='triangular',
               gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=True,
-              base_momentum=0.8, max_momentum=0.9, **_) -> Any:
-    return lr_sched.CyclicLR(optimizer, base_lr=base_lr, max_lr=max_lr,
+              base_momentum=0.8, max_momentum=0.9, coeff=1, **_) -> Any:
+    return lr_sched.CyclicLR(optimizer, base_lr=base_lr*coeff, max_lr=max_lr*coeff,
                              step_size_up=step_size_up, step_size_down=
                              step_size_down, mode=mode, gamma=gamma,
                              scale_mode=scale_mode, cycle_momentum=
                              cycle_momentum, base_momentum=base_momentum,
                              max_momentum=max_momentum, last_epoch=last_epoch)
 
-def get_scheduler(config, optimizer, last_epoch=-1):
+def get_scheduler(config, optimizer, last_epoch=-1, coeff=1):
     func = globals().get(config.name)
-    return func(optimizer, last_epoch, **config.params)
+    return func(optimizer, last_epoch, coeff=coeff, **config.params)
 
 def is_scheduler_continuous(scheduler) -> bool:
     return type(scheduler) in [lr_sched.ExponentialLR,

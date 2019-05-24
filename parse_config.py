@@ -51,6 +51,8 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.enable_warmup = False
     cfg.train.head_only_warmup = False
     cfg.train.accum_batches_num = 1
+    cfg.train.lr_decay_coeff = 0
+    cfg.train.lr_decay_milestones = []
 
     cfg.train.mixup = edict()
     cfg.train.mixup.enable = False

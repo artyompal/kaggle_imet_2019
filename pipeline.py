@@ -337,9 +337,8 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
 
         if is_scheduler_continuous(lr_scheduler):
             lr_scheduler.step()
-            lr_str = f'\tlr {get_lr(optimizer):.08f}'
-
-        if is_scheduler_continuous(lr_scheduler2):
+            lr_str = f'\tlr {get_lr(optimizer):.02e}'
+        elif is_scheduler_continuous(lr_scheduler2):
             lr_scheduler2.step()
             lr_str = f'\tlr {get_lr(optimizer):.08f}'
 
@@ -488,7 +487,8 @@ def run() -> float:
 
     if not args.cosine:
         lr_scheduler = get_scheduler(config.scheduler, optimizer, last_epoch=
-                                     (last_epoch if config.scheduler.name != 'cosine' else -1))
+                                     (last_epoch if config.scheduler.name != 'cyclic_lr' else -1))
+        assert config.scheduler2.name == ''
         lr_scheduler2 = get_scheduler(config.scheduler2, optimizer, last_epoch=last_epoch) \
                         if config.scheduler2.name else None
     else:
@@ -534,6 +534,16 @@ def run() -> float:
                 logger.info(f'checkpoint loaded: {best_model_path}')
                 set_lr(optimizer, lr)
                 last_lr = lr
+
+        if config.train.lr_decay_coeff != 0 and epoch in config.train.lr_decay_milestones:
+            n_cycles = config.train.lr_decay_milestones.index(epoch) + 1
+            total_coeff = config.train.lr_decay_coeff ** n_cycles
+            logger.info(f'artificial LR scheduler: made {n_cycles} cycles, decreasing LR by {total_coeff}')
+
+            set_lr(optimizer, config.scheduler.params.base_lr * total_coeff)
+            lr_scheduler = get_scheduler(config.scheduler, optimizer,
+                                         coeff=total_coeff, last_epoch=-1)
+                                         # (last_epoch if config.scheduler.name != 'cyclic_lr' else -1))
 
         if isinstance(lr_scheduler, CosineLRWithRestarts):
             restart = lr_scheduler.epoch_step()
