@@ -24,8 +24,6 @@ train:
     mixup:
         enable: true
         beta_a: 0.3
-    lr_decay_coeff: 0.2
-    lr_decay_milestones: [2, 5, 8]
 
 test:
     csv: '../input/sample_submission.csv'
