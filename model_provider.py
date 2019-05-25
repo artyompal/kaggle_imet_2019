@@ -9,11 +9,7 @@ __all__ = ['get_model']
 
 
 _models = {
-    'cbam_resnet18': cbam_resnet18,
-    'cbam_resnet34': cbam_resnet34,
     'cbam_resnet50': cbam_resnet50,
-    'cbam_resnet101': cbam_resnet101,
-    'cbam_resnet152': cbam_resnet152,
 
     'pnasnet5large': pnasnet5large,
 
