@@ -18,7 +18,7 @@ COLUMNS     = 1
 ROWS        = 3
 
 NUM_SAMPLES_PER_CLASS   = COLUMNS * ROWS
-NUM_SAMPLES_TO_SHOW     = 3
+NUM_SAMPLES_TO_SHOW     = 20
 
 
 if __name__ == "__main__":
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     dprint(ground_truths)
 
     negatives = ground_truths != rounded_predicts
-    predicts[negatives != 0] = 0
+    predicts[negatives == 0] = 0
 
     confs = np.amax(predicts, axis=1)
     dprint(confs.shape)
@@ -69,6 +69,11 @@ if __name__ == "__main__":
     # visualize mistakes
     for sample in most_confident_mistakes[:NUM_SAMPLES_TO_SHOW]:
         print('-' * 80)
+        dprint(sample)
+        dprint(train_df.id[sample])
+        print('predicts', [i for i, p in enumerate(predicts[sample]) if p > 0])
+        print('ground truth', train_df.attribute_ids[sample])
+
         conf = predicts[sample]
         predict_str = " ".join(f'{labels_table[i]} ({conf[i]:.02f})'
                                for i, L in enumerate(rounded_predicts[sample]) if L)
