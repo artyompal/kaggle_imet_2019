@@ -18,6 +18,7 @@ from debug import dprint
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
+NUM_FOLDS = 5
 NUM_CLASSES = 1103
 
 if __name__ == '__main__':
@@ -26,27 +27,26 @@ if __name__ == '__main__':
         sys.exit()
 
     source_file = sys.argv[1]
-    result_name = os.path.splitext(os.path.basename(source_file))[0] + '.csv'
+    result_name = os.path.splitext(os.path.basename(source_file))[0] + '_oof.npy'
 
-    sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
-    result = np.zeros((sub.shape[0], NUM_CLASSES))
+    fold_num = np.load('folds.npy')
+    train_df = pd.read_csv('../input/train.csv')
 
     with open(source_file) as f:
         ensemble = yaml.load(f, Loader=yaml.SafeLoader)
 
-    for predicts in ensemble:
-        weight = predicts['weight']
+    result = np.zeros((train_df.shape[0], NUM_CLASSES))
 
-        for pred in predicts['predicts']:
-            result += np.load(pred.replace('_train_', '_test_')) * weight
+    for predicts in tqdm(ensemble):
+        weight = predicts['weight']
+        assert len(predicts['predicts']) == NUM_FOLDS
+
+        for fold, pred in enumerate(predicts['predicts']):
+            result[fold_num == fold] += np.load(pred) * weight
+
+    result /= len(ensemble)
 
     dprint(result.shape)
     dprint(result)
-    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
-              for pred in tqdm(result, disable=IN_KERNEL)]
-    dprint(len(labels))
-    print('labels')
-    print(np.array(labels))
 
-    sub['attribute_ids'] = labels
-    sub.to_csv(result_name, index=False)
+    np.save(result_name, result)

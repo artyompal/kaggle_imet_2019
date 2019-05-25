@@ -19,6 +19,8 @@ from debug import dprint
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 NUM_ATTEMPTS = 100
+NUM_FOLDS = 5
+NUM_CLASSES = 1103
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
@@ -26,7 +28,6 @@ if __name__ == '__main__':
         sys.exit()
 
     ensemble_name, predicts = sys.argv[1], sys.argv[2:]
-    num_folds = 5
     level1_filenames: List[List[str]] = []
     level1_train_predicts: List[List[np.array]] = []
     level1_test_predicts: List[List[np.array]] = []
@@ -34,10 +35,9 @@ if __name__ == '__main__':
     # load labels
     fold_num = np.load('folds.npy')
     train_df = pd.read_csv('../input/train.csv')
-    num_classes = pd.read_csv('../input/labels.csv').shape[0]
 
     def parse_labels(s: str) -> np.array:
-        res = np.zeros(num_classes)
+        res = np.zeros(NUM_CLASSES)
         res[list(map(int, s.split()))] = 1
         return res - 0.5    # we use zero threshold instead of 0.5
 
@@ -53,7 +53,7 @@ if __name__ == '__main__':
         model_path = m.group(1)
 
         level1_fnames, level1_train, level1_test = [], [], []
-        for fold in range(num_folds):
+        for fold in range(NUM_FOLDS):
             filenames = glob(f'{model_path}_f{fold}_*.npy')
             assert len(filenames) == 1 # the model must be unique in this fold
             filename = filenames[0]
