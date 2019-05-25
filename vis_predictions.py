@@ -54,9 +54,10 @@ if __name__ == "__main__":
     dprint(ground_truths)
 
     negatives = ground_truths != rounded_predicts
-    predicts[negatives == 0] = 0
+    masked_predicts = np.copy(predicts)
+    masked_predicts[negatives == 0] = 0
 
-    confs = np.amax(predicts, axis=1)
+    confs = np.amax(masked_predicts, axis=1)
     dprint(confs.shape)
     most_confident_mistakes = np.argsort(-confs)
     dprint(most_confident_mistakes.shape)
@@ -67,16 +68,16 @@ if __name__ == "__main__":
     # plt.show()
 
     # visualize mistakes
-    for sample in most_confident_mistakes[:NUM_SAMPLES_TO_SHOW]:
+    for j, sample in enumerate(most_confident_mistakes[:NUM_SAMPLES_TO_SHOW]):
         print('-' * 80)
-        dprint(sample)
-        dprint(train_df.id[sample])
+        print(f'index {j} sample {sample} image {train_df.id[sample]}')
+
         print('predicts', [i for i, p in enumerate(predicts[sample]) if p > 0])
-        print('ground truth', train_df.attribute_ids[sample])
+        print(f'ground truth [{train_df.attribute_ids[sample]}]')
 
         conf = predicts[sample]
-        predict_str = " ".join(f'{labels_table[i]} ({conf[i]:.02f})'
-                               for i, L in enumerate(rounded_predicts[sample]) if L)
+        predict_str = " ".join(f'{labels_table[i]} ({c:.02f})'
+                               for i, c in enumerate(conf) if c > 0)
         labels = " ".join(labels_table[i] for i, L in enumerate(ground_truths[sample]) if L)
         dprint(predict_str)
         dprint(labels)
