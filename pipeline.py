@@ -484,6 +484,8 @@ def run() -> float:
             set_lr(optimizer, float(args.lr))
         elif 'lr' in config.optimizer.params:
             set_lr(optimizer, config.optimizer.params.lr)
+        elif 'base_lr' in config.scheduler.params:
+            set_lr(optimizer, config.scheduler.params.base_lr)
 
     if not args.cosine:
         lr_scheduler = get_scheduler(config.scheduler, optimizer, last_epoch=
