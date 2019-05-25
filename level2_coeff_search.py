@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import yaml
 
 from glob import glob
 from collections import OrderedDict
@@ -17,14 +18,16 @@ from debug import dprint
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
+NUM_ATTEMPTS = 100
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-        print(f'usage: {sys.argv[0]} result.csv predict1.npy ...')
+        print(f'usage: {sys.argv[0]} <ensemble_name> predict1.npy ...')
         sys.exit()
 
-    result_name, predicts = sys.argv[1], sys.argv[2:]
+    ensemble_name, predicts = sys.argv[1], sys.argv[2:]
     num_folds = 5
+    level1_filenames: List[List[str]] = []
     level1_train_predicts: List[List[np.array]] = []
     level1_test_predicts: List[List[np.array]] = []
 
@@ -49,21 +52,22 @@ if __name__ == '__main__':
         assert m
         model_path = m.group(1)
 
-        level1_train, level1_test = [], []
+        level1_fnames, level1_train, level1_test = [], [], []
         for fold in range(num_folds):
             filenames = glob(f'{model_path}_f{fold}_*.npy')
             assert len(filenames) == 1 # the model must be unique in this fold
             filename = filenames[0]
 
             print('found', filename)
+            level1_fnames.append(filename)
             level1_train.append(np.load(filename))
             level1_test.append(np.load(filename.replace('level1_train_', 'level1_test_')))
 
+        level1_filenames.append(level1_fnames)
         level1_train_predicts.append(level1_train)
         level1_test_predicts.append(level1_test)
 
     # search for the best blend weights
-    NUM_ATTEMPTS = 100
     best_weights = np.ones(len(level1_train_predicts))
     best_score = 0.0
 
@@ -72,7 +76,6 @@ if __name__ == '__main__':
         weights = np.random.rand(len(level1_train_predicts))
         weights /= sum(weights)
         all_predicts = np.zeros_like(all_labels)
-        # dprint(weights)
 
         for lvl1_predicts, w in zip(level1_train_predicts, weights):
             model_predict = np.zeros_like(all_labels)
@@ -84,29 +87,19 @@ if __name__ == '__main__':
             all_predicts += model_predict
 
         score = F_score(all_predicts, all_labels, beta=2, threshold=0)
-        # dprint(score)
 
         if score > best_score:
             best_score, best_weights = score, weights
             print('best_score', best_score, 'weights', weights)
 
-    # generate submission
-    sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
-    result = np.zeros((sub.shape[0], 1103))
+    # generate an ensemble description file
+    ensemble = []
 
-    for lvl1_predicts, w in zip(level1_test_predicts, best_weights):
-        for lvl1_pred in lvl1_predicts:
-            result += lvl1_pred * w
+    for model, weight in zip(level1_filenames, best_weights):
+        ensemble.append({'predicts': model, 'weight': weight.item()})
 
-    dprint(result.shape)
-    dprint(result)
-    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
-              for pred in tqdm(result, disable=IN_KERNEL)]
-    dprint(len(labels))
-    print('labels')
-    print(np.array(labels))
+    filename = f'ens_{ensemble_name}_val_{best_score:.04f}.yml'
+    print('saving weights to', filename)
 
-    sub['attribute_ids'] = labels
-    weights_str = '_'.join(map(lambda w: f'{w:.3}', best_weights))
-    result_name = os.path.splitext(result_name)[0]
-    sub.to_csv(f'{result_name}_{weights_str}_val_{best_score:.4}.csv', index=False)
+    with open(filename, 'w') as f:
+        yaml.dump(ensemble, f)

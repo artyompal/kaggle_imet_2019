@@ -7,3 +7,4 @@ sub_*.py
 *.pth
 *.npy
 *.npz
+*.yml
