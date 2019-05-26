@@ -68,7 +68,8 @@ if __name__ == "__main__":
     # plt.show()
 
     # visualize mistakes
-    for j, sample in enumerate(most_confident_mistakes[:NUM_SAMPLES_TO_SHOW]):
+    OFFSET = 0
+    for j, sample in enumerate(most_confident_mistakes[OFFSET : OFFSET + NUM_SAMPLES_TO_SHOW]):
         print('-' * 80)
         print(f'index {j} sample {sample} image {train_df.id[sample]}')
 
