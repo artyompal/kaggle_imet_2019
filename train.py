@@ -84,8 +84,15 @@ def load_data(fold: int) -> Any:
 
     full_df = pd.read_csv(config.train.csv)
     print('full_df', full_df.shape)
-    train_df, val_df = train_val_split(full_df, fold)
-    print('train_df', train_df.shape, 'val_df', val_df.shape)
+    train_df, _ = train_val_split(full_df, fold)
+    print('train_df', train_df.shape)
+
+    # use original train.csv for validation
+    full_df2 = pd.read_csv('../input/train.csv')
+    assert full_df2.shape == full_df.shape
+    _, val_df = train_val_split(full_df2, fold)
+    print('val_df', val_df.shape)
+
     test_df = pd.read_csv(config.test.csv)
 
     augs: List[Union[albu.BasicTransform, albu.OneOf]] = []
