@@ -40,6 +40,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.data.scale_both_dims = False
 
     cfg.train = edict()
+    cfg.train.csv = ''
     cfg.train.batch_size = 32 * torch.cuda.device_count()
     cfg.train.num_epochs = 10 ** 9
     cfg.train.shuffle = True
@@ -76,6 +77,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.val.images_per_class = None
 
     cfg.test = edict()
+    cfg.test.csv = ''
     cfg.test.batch_size = 64 * torch.cuda.device_count()
     cfg.test.num_ttas = 1
     cfg.test.num_predicts = 5
