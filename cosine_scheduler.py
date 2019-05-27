@@ -14,11 +14,12 @@ class CosineLRWithRestarts():
         batch_size: minibatch size
         epoch_size: training samples per epoch
         restart_period: epoch count in the first restart period
-        t_mult: multiplication factor by which the next restart period will extend/shrink
+        period_inc: period increment value
+        period_max: maximum period value, in epochs
 
 
     Example:
-        >>> scheduler = CosineLRWithRestarts(optimizer, 32, 1024, restart_period=5, t_mult=1.2)
+        >>> scheduler = CosineLRWithRestarts(optimizer, 32, 1024, restart_period=5, period_inc=1)
         >>> for epoch in range(100):
         >>>     scheduler.epoch_step()
         >>>     train(...)
@@ -31,8 +32,8 @@ class CosineLRWithRestarts():
     '''
 
     def __init__(self, optimizer, batch_size, epoch_size, restart_period=100,
-                 t_mult=2, last_epoch=-1, eta_threshold=1000, verbose=False,
-                 min_lr=1e-7):
+                 period_inc=2, max_period=100, last_epoch=-1, eta_threshold=1000,
+                 verbose=False, min_lr=1e-7):
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
@@ -55,7 +56,8 @@ class CosineLRWithRestarts():
         self.batch_size = batch_size
         self.epoch_size = epoch_size
         self.eta_threshold = eta_threshold
-        self.t_mult = t_mult
+        self.period_inc = period_inc
+        self.max_period = max_period
         self.verbose = verbose
         self.base_weight_decays = list(map(lambda group: group['weight_decay'],
                                            optimizer.param_groups))
@@ -117,7 +119,8 @@ class CosineLRWithRestarts():
             if self.verbose:
                 print("restart at epoch {}".format(self.last_epoch))
 
-            self.restart_period = int(math.ceil(self.t_mult * self.restart_period))
+            self.restart_period = min(self.restart_period * self.period_inc,
+                                      self.max_period)
             self.restarts += 1
             self.t_epoch = 0
 

@@ -45,11 +45,8 @@ if __name__ == '__main__':
         script_py,
         ]
 
-    to_encode = sorted(set(to_encode))
-
     to_encode.extend(glob('models/*.py'))
     to_encode.extend(glob('albumentations/*.py'))
-    to_encode.extend(glob('models/*.py'))
     to_encode.extend(glob('albumentations/**/*.py'))
     to_encode.extend(arg for arg in sys.argv[2:] if os.path.exists(arg))
 

@@ -506,10 +506,11 @@ def run() -> float:
 
         set_lr(optimizer, float(config.cosine.start_lr))
         lr_scheduler = CosineLRWithRestarts(optimizer,
-                                            config.train.batch_size,
-                                            epoch_size,
+                                            batch_size=config.train.batch_size,
+                                            epoch_size=epoch_size,
                                             restart_period=config.cosine.period,
-                                            t_mult=config.cosine.period_mult)
+                                            period_inc=config.cosine.period_inc,
+                                            max_period=config.cosine.max_period)
         lr_scheduler2 = None
 
     if args.gen_predict:
@@ -558,7 +559,7 @@ def run() -> float:
             restart = lr_scheduler.epoch_step()
             if restart:
                 logger.info('cosine annealing restarted, resetting the best metric')
-                best_score = min(config.cosine.default_metric_val, best_score)
+                best_score = min(config.cosine.min_metric_val, best_score)
 
         train_epoch(train_loader, model, criterion, optimizer, epoch,
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
@@ -610,7 +611,7 @@ if __name__ == '__main__':
     parser.add_argument('--summary', help='show model summary', action='store_true')
     parser.add_argument('--lr', help='override learning rate', type=float, default=0)
     parser.add_argument('--num_epochs', help='override number of epochs', type=int, default=0)
-    parser.add_argument('--cosine', help='enable cosine annealing', action='store_true')
+    parser.add_argument('--cosine', help='enable cosine annealing', type=bool, default=True)
     args = parser.parse_args()
 
     config = parse_config.load(args.config, args)
