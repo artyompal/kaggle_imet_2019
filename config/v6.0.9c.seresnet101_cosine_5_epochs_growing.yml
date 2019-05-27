@@ -1,23 +1,17 @@
 
 model:
-    arch: 'seresnext50_32x4d'
-    input_size: 384
+    arch: 'seresnext101_32x4d'
+    input_size: 352
     num_classes: 1103
-    dropout: 0.2
-
-data:
-    rect_crop:
-        enable: false
-        min_ratio: 0.3
-        max_ratio: 1.0
-        scale_both_dims: false
+    dropout: 0.3
 
 train:
     csv: '../input/train_conf_0.1.csv'
     batch_size: 16
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
-    enable_warmup: true
+    enable_warmup: false
+    num_epochs: 40
     warmup:
         steps: 5000
         max_lr: 1e-4
@@ -35,6 +29,13 @@ optimizer:
     params:
         lr: 1e-4
 
+# scheduler:
+#     name: 'multi_step'
+#     params:
+#         milestones: [20, 30, 35]
+#         gamma: 0.2
+
+# original LR scheduler, used for training:
 scheduler:
     name: 'reduce_lr_on_plateau'
     params:
@@ -45,19 +46,24 @@ scheduler:
 
 cosine:
     start_lr: 1e-4
-    period: 3
+    period: 5
     period_mult: 1.1
+
+# original cosine annealing
+# cosine:
+#     start_lr: 2e-5
+#     period: 4
+#     period_mult: 1.1
 
 loss:
     name: 'binary_cross_entropy'
 
 augmentations:
+    affine: 'medium'
     hflip: true
-#     affine: 'medium'
-    blur: 0.2
+    blur: 0.3
     distortion: 0.2
-    noise: 0.2
-    global_prob: 0.5
+    noise: 0.3
     erase:
         prob: 0.5
         min_area: 0.02
