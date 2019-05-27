@@ -558,7 +558,7 @@ def run() -> float:
             restart = lr_scheduler.epoch_step()
             if restart:
                 logger.info('cosine annealing restarted, resetting the best metric')
-                best_score = config.cosine.default_metric_val
+                best_score = min(config.cosine.default_metric_val, best_score)
 
         train_epoch(train_loader, model, criterion, optimizer, epoch,
                     lr_scheduler, lr_scheduler2, config.train.max_steps_per_epoch)
@@ -617,9 +617,6 @@ if __name__ == '__main__':
 
     if args.num_epochs:
         config.train.num_epochs = args.num_epochs
-
-    if args.cosine:
-        assert args.weights is not None
 
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
