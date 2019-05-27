@@ -12,12 +12,14 @@ from easydict import EasyDict as edict
 
 from debug import dprint
 
+IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 def _get_default_config(filename: str, args: Any) -> edict:
     cfg = edict()
     cfg.in_kernel = False
     cfg.version = os.path.splitext(os.path.basename(filename))[0]
-    cfg.experiment_dir = f'../models/{cfg.version}/fold_{args.fold}/'
+    cfg.experiment_dir = f'../models/{cfg.version}/fold_{args.fold}/' \
+                         if not IN_KERNEL else '.'
     cfg.num_workers = min(12, multiprocessing.cpu_count())
 
     cfg.model = edict()

@@ -2,7 +2,7 @@ __pycache__/
 submission.py
 *.csv
 *.csv.py
-sub_*.py
+kernel_*.py
 *.pkl
 *.pth
 *.npy

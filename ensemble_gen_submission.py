@@ -26,7 +26,8 @@ if __name__ == '__main__':
         sys.exit()
 
     source_file = sys.argv[1]
-    result_name = os.path.splitext(os.path.basename(source_file))[0] + '.csv'
+    result_name = os.path.splitext(os.path.basename(source_file))[0] + '.csv' \
+                  if not IN_KERNEL else 'submission.csv'
 
     sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
     result = np.zeros((sub.shape[0], NUM_CLASSES))

@@ -37,7 +37,7 @@ from optimizers import get_optimizer, get_lr, set_lr
 from metrics import F_score
 from random_rect_crop import RandomRectCrop
 from random_erase import RandomErase
-from models import create_model, freeze_layers, unfreeze_layers
+from model import create_model, freeze_layers, unfreeze_layers
 from cosine_scheduler import CosineLRWithRestarts
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
