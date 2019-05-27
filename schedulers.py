@@ -1,6 +1,8 @@
 ''' Learning rate schedulers. '''
 
 import json
+
+import torch
 import torch.optim.lr_scheduler as lr_sched
 
 from typing import Any
@@ -53,10 +55,12 @@ def get_scheduler(config, optimizer, last_epoch=-1, coeff=1):
     return func(optimizer, last_epoch, coeff=coeff, **config.params)
 
 def is_scheduler_continuous(scheduler) -> bool:
-    return type(scheduler) in [lr_sched.ExponentialLR,
-                               lr_sched.CosineAnnealingLR,
-                               lr_sched.CyclicLR,
-                               CosineLRWithRestarts]
+    if tuple(torch.__version__.split('.')) >= tuple(['1', '1', '0']):
+        return type(scheduler) in [lr_sched.ExponentialLR, lr_sched.CosineAnnealingLR,
+                                   lr_sched.CyclicLR, CosineLRWithRestarts]
+    else:
+        return type(scheduler) in [lr_sched.ExponentialLR, lr_sched.CosineAnnealingLR,
+                                   CosineLRWithRestarts]
 
 def get_warmup_scheduler(config, optimizer) -> Any:
     return lr_sched.CyclicLR(optimizer, base_lr=0, max_lr=config.train.warmup.max_lr,
