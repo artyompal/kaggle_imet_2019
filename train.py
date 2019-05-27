@@ -42,9 +42,12 @@ from cosine_scheduler import CosineLRWithRestarts
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
+INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
+ADDITIONAL_DATASET_PATH = '../input/imet-datasets/'
 
-# if not IN_KERNEL:
-#     import torchcontrib
+
+def find_input_file(path: str) -> str:
+    return path if os.path.exists(path) else ADDITIONAL_DATASET_PATH + os.path.basename(path)
 
 def make_folds(df: pd.DataFrame) -> pd.DataFrame:
     cls_counts = Counter(cls for classes in df['attribute_ids'].str.split() for cls in classes)
@@ -82,18 +85,18 @@ def load_data(fold: int) -> Any:
     logger.info('config:')
     logger.info(pprint.pformat(config))
 
-    full_df = pd.read_csv(config.train.csv)
+    full_df = pd.read_csv(find_input_file(config.train.csv))
     print('full_df', full_df.shape)
     train_df, _ = train_val_split(full_df, fold)
     print('train_df', train_df.shape)
 
     # use original train.csv for validation
-    full_df2 = pd.read_csv('../input/train.csv')
+    full_df2 = pd.read_csv(INPUT_PATH + 'train.csv')
     assert full_df2.shape == full_df.shape
     _, val_df = train_val_split(full_df2, fold)
     print('val_df', val_df.shape)
 
-    test_df = pd.read_csv(config.test.csv)
+    test_df = pd.read_csv(find_input_file(INPUT_PATH + 'sample_submission.csv'))
 
     augs: List[Union[albu.BasicTransform, albu.OneOf]] = []
 
@@ -471,9 +474,6 @@ def run() -> float:
                     warmup_scheduler, None, config.train.warmup.steps)
 
     optimizer = get_optimizer(config, model.parameters())
-
-    # if config.train.swa.enable:
-    #     optimizer = torchcontrib.optim.SWA(optimizer)
 
     if args.weights is None:
         last_epoch = -1

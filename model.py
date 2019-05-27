@@ -19,7 +19,8 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
     logger.info(f'creating a model {config.model.arch}')
     dropout = config.model.dropout
 
-    model = get_model(config.model.arch, pretrained=args.weights is None)
+    model = get_model(config.model.arch, pretrained=args.weights is None,
+                      root='../input/pytorchcv-models/')
 
     if config.model.arch == 'xception':
         model.features[-1].pool = nn.AdaptiveAvgPool2d(1)

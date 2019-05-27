@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     # load labels
     fold_num = np.load('folds.npy')
-    train_df = pd.read_csv('../input/train.csv')
+    train_df = pd.read_csv(INPUT_PATH + 'train.csv')
 
     def parse_labels(s: str) -> np.array:
         res = np.zeros(NUM_CLASSES)

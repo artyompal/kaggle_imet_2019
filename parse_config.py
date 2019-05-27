@@ -13,6 +13,7 @@ from easydict import EasyDict as edict
 from debug import dprint
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
+INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 def _get_default_config(filename: str, args: Any) -> edict:
     cfg = edict()
@@ -32,8 +33,8 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.model.dropout = 0
 
     cfg.data = edict()
-    cfg.data.train_dir = '../input/train/'
-    cfg.data.test_dir = '../input/test/'
+    cfg.data.train_dir = INPUT_PATH + 'train/'
+    cfg.data.test_dir = INPUT_PATH + 'test/'
 
     cfg.data.rect_crop = edict()
     cfg.data.rect_crop.enable = False
