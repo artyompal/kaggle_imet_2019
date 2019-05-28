@@ -432,10 +432,9 @@ def gen_train_prediction(data_loader: Any, model: Any, epoch: int,
     predicts -= threshold
 
     filename = os.path.splitext(os.path.basename(model_path))[0]
-    filename = f'level1_train_{filename}'
-    np.save(filename + '.npy', predicts)
+    np.save(f'level1_train_{filename}.npy', predicts)
 
-    with open(filename + '.yml', 'w') as f:
+    with open(f'{filename}.yml', 'w') as f:
         yaml.dump({'threshold': threshold}, f)
 
 def gen_test_prediction(data_loader: Any, model: Any, model_path: str) -> np.ndarray:
