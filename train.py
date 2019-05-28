@@ -189,7 +189,7 @@ def load_data(fold: int) -> Any:
         num_workers=config.num_workers, drop_last=True)
 
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=config.test.batch_size, shuffle=False,
+        val_dataset, batch_size=config.train.batch_size, shuffle=False,
         num_workers=config.num_workers)
 
     test_loader = torch.utils.data.DataLoader(
@@ -613,6 +613,7 @@ if __name__ == '__main__':
     parser.add_argument('--summary', help='show model summary', action='store_true')
     parser.add_argument('--lr', help='override learning rate', type=float, default=0)
     parser.add_argument('--num_epochs', help='override number of epochs', type=int, default=0)
+    parser.add_argument('--num_ttas', help='override number of TTAs', type=int, default=0)
     parser.add_argument('--cosine', help='enable cosine annealing', type=bool, default=True)
     args = parser.parse_args()
 
@@ -620,6 +621,10 @@ if __name__ == '__main__':
 
     if args.num_epochs:
         config.train.num_epochs = args.num_epochs
+
+    if args.num_ttas:
+        config.test.num_ttas = args.num_ttas
+        config.test.batch_size //= args.num_ttas
 
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
