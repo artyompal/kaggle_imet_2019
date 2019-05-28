@@ -1,0 +1,46 @@
+
+model:
+    arch: 'pnasnet5large'
+    input_size: 288
+    num_classes: 1103
+    dropout: 0.3
+
+train:
+    csv: '../input/train.csv'
+    batch_size: 16
+    folds_file: 'folds.npy'
+    max_steps_per_epoch: 15000
+
+test:
+    csv: '../input/sample_submission.csv'
+    batch_size: 32
+    num_ttas: 2
+
+optimizer:
+    name: 'adam'
+    params:
+        lr: 1e-4
+
+scheduler:
+    name: 'reduce_lr_on_plateau'
+    params:
+        factor: 0.2
+        patience: 2
+        min_lr: 3e-7
+        threshold: 1e-3
+
+cosine:
+    start_lr: 1e-4
+    period: 3
+    period_inc: 1
+    max_period: 5
+
+loss:
+    name: 'binary_cross_entropy'
+
+augmentations:
+    affine: 'medium'
+    hflip: true
+    blur: 0.3
+    distortion: 0.2
+    noise: 0.3
