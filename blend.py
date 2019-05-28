@@ -10,7 +10,7 @@ INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 if __name__ == '__main__':
     if len(sys.argv) < 4 or len(sys.argv) % 2 != 0:
-        print(f'usage: {sys.argv[0]} result.csv submission1.csv weight1...')
+        print(f'usage: {sys.argv[0]} result.csv submission1.npy weight1...')
         sys.exit()
 
     result_name = sys.argv[1]
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         print(f'reading {pred}, weight={w}')
 
         data = np.load(pred)
-        result += (data['predicts'] - data['threshold']) * w
+        result += data * w
 
     dprint(result.shape)
     dprint(result)
