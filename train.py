@@ -663,7 +663,7 @@ if __name__ == '__main__':
 
     if args.num_ttas:
         config.test.num_ttas = args.num_ttas
-        config.test.batch_size //= args.num_ttas
+        # config.test.batch_size //= args.num_ttas # ideally, I'd like to use big batches
 
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
