@@ -106,7 +106,13 @@ class ImageDataset(torch.utils.data.Dataset):
         if self.num_ttas == 1:
             image = self._transform_image(image, index)
         else:
-            image = torch.stack([self._transform_image(image, index) for _ in range(self.num_ttas)])
+            crops = [self._transform_image(image, index) for _ in range(self.num_ttas)]
+
+            for i in range(len(crops)):
+                if i % 2 != 0:
+                    crops[i] = torch.flip(crops[i], dims=[-1])
+
+            image = torch.stack(crops)
 
         if self.mode != 'test':
             targets = np.zeros(self.num_classes, dtype=np.float32)

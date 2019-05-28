@@ -168,7 +168,7 @@ def load_data(fold: int) -> Any:
         transform_test = albu.Compose([
             albu.PadIfNeeded(config.model.input_size, config.model.input_size),
             albu.RandomCrop(height=config.model.input_size, width=config.model.input_size),
-            albu.HorizontalFlip(0.5),
+            # horizontal flip is done by the data loader
         ])
     else:
         transform_test = albu.Compose([
@@ -432,10 +432,10 @@ def gen_train_prediction(data_loader: Any, model: Any, epoch: int,
     predicts -= threshold
 
     filename = os.path.splitext(os.path.basename(model_path))[0]
-    filename = f'level1_train_{filename}.yml'
-    np.save(filename, predicts)
+    filename = f'level1_train_{filename}'
+    np.save(filename + '.npy', predicts)
 
-    with open(filename, 'w') as f:
+    with open(filename + '.yml', 'w') as f:
         yaml.dump({'threshold': threshold}, f)
 
 def gen_test_prediction(data_loader: Any, model: Any, model_path: str) -> np.ndarray:
@@ -494,7 +494,12 @@ def run() -> float:
         last_epoch = -1
     else:
         last_checkpoint = torch.load(args.weights)
-        assert last_checkpoint['arch'] == config.model.arch
+        model_arch = last_checkpoint['arch'].replace('se_', 'se')
+        if model_arch != config.model.arch:
+            dprint(model_arch)
+            dprint(config.model.arch)
+            assert model_arch == config.model.arch
+
         model.load_state_dict(last_checkpoint['state_dict'])
         optimizer.load_state_dict(last_checkpoint['optimizer'])
         logger.info(f'checkpoint loaded: {args.weights}')
@@ -641,7 +646,8 @@ if __name__ == '__main__':
 
         # f'{config.version}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth')
         m = re.match(r'(.*)_f(\d)_e(\d+)_([.0-9]+)\.pth', os.path.basename(args.weights))
-        assert m
+        if not m:
+            raise RuntimeError('could not parse model name')
 
         if not args.config:
             args.config = f'config/{m.group(1)}.yml'
