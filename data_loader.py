@@ -33,7 +33,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.aug_type = aug_type
 
         self.version = config.version
-        self.path = config.data.train_dir
+        self.path = config.data.train_dir if mode != 'test' else config.data.test_dir
         self.num_classes = config.model.num_classes
         self.input_size = config.model.input_size
         self.rect_crop = config.data.rect_crop

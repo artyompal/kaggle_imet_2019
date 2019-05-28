@@ -362,9 +362,6 @@ def train_epoch(train_loader: Any, model: Any, criterion: Any, optimizer: Any,
                         f'F2 {avg_score.val:.4f} ({avg_score.avg:.4f})'
                         + lr_str)
 
-    # if config.train.swa.enable and epoch > 0 and epoch % config.train.swa.period == 0:
-    #     optimizer.update_swa()
-
     logger.info(f' * average F2 on train {avg_score.avg:.4f}')
 
 def inference(data_loader: Any, model: Any) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -375,7 +372,12 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.Tensor, Optional[torc
     predicts_list, targets_list = [], []
 
     with torch.no_grad():
-        for i, (input_, target) in enumerate(tqdm(data_loader, disable=IN_KERNEL)):
+        for input_data in tqdm(data_loader, disable=IN_KERNEL):
+            if data_loader.dataset.mode != 'test':
+                input_, target = input_data
+            else:
+                input_, target = input_data, None
+
             if config.test.num_ttas != 1 and data_loader.dataset.mode == 'test':
                 bs, ncrops, c, h, w = input_.size()
                 input_ = input_.view(-1, c, h, w) # fuse batch size and ncrops
@@ -398,7 +400,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.Tensor, Optional[torc
                 targets_list.append(target)
 
     predicts = np.concatenate(predicts_list)
-    targets = np.concatenate(targets_list)
+    targets = np.concatenate(targets_list) if targets_list else None
     return predicts, targets
 
 def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.ndarray]:
@@ -412,7 +414,7 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.
     predicts, targets = torch.tensor(predicts), torch.tensor(targets)
     best_score, best_thresh = 0.0, 0.0
 
-    for threshold in tqdm(np.linspace(0.05, 0.15, 33), disable=IN_KERNEL):
+    for threshold in tqdm(np.linspace(0.05, 0.25, 33), disable=IN_KERNEL):
         score = F_score(predicts, targets, beta=2, threshold=threshold)
         if score > best_score:
             best_score, best_thresh = score, threshold

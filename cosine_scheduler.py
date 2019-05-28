@@ -119,7 +119,7 @@ class CosineLRWithRestarts():
             if self.verbose:
                 print("restart at epoch {}".format(self.last_epoch))
 
-            self.restart_period = min(self.restart_period * self.period_inc,
+            self.restart_period = min(self.restart_period + self.period_inc,
                                       self.max_period)
             self.restarts += 1
             self.t_epoch = 0

@@ -66,10 +66,6 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.train.warmup.steps = None
     cfg.train.warmup.max_lr = None
 
-    # cfg.train.swa = edict()
-    # cfg.train.swa.enable = False
-    # cfg.train.swa.period = None
-
     cfg.train.lr_finder = edict()
     cfg.train.lr_finder.num_steps = 10 ** 9     # one epoch max
     cfg.train.lr_finder.beta = 0.98
@@ -84,6 +80,7 @@ def _get_default_config(filename: str, args: Any) -> edict:
     cfg.test.batch_size = 64 * torch.cuda.device_count()
     cfg.test.num_ttas = 1
     cfg.test.num_predicts = 5
+    cfg.test.tta_combine_func = 'mean'
 
     cfg.optimizer = edict()
     cfg.optimizer.name = 'adam'
