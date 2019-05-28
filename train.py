@@ -6,8 +6,10 @@ import math
 import os
 import pprint
 import random
+import re
 import sys
 import time
+import yaml
 
 from typing import *
 from collections import defaultdict, Counter
@@ -178,8 +180,9 @@ def load_data(fold: int) -> Any:
     train_dataset = ImageDataset(train_df, mode='train', config=config,
                                  augmentor=transform_train)
 
+    num_ttas_for_val = config.test.num_ttas if args.predict_oof else 1
     val_dataset = ImageDataset(val_df, mode='val', config=config,
-                               augmentor=transform_test)
+                               num_ttas=num_ttas_for_val, augmentor=transform_test)
 
     test_dataset = ImageDataset(test_df, mode='test', config=config,
                                 augmentor=transform_test)
@@ -378,7 +381,7 @@ def inference(data_loader: Any, model: Any) -> Tuple[torch.Tensor, Optional[torc
             else:
                 input_, target = input_data, None
 
-            if config.test.num_ttas != 1 and data_loader.dataset.mode == 'test':
+            if data_loader.dataset.num_ttas != 1:
                 bs, ncrops, c, h, w = input_.size()
                 input_ = input_.view(-1, c, h, w) # fuse batch size and ncrops
 
@@ -414,27 +417,37 @@ def validate(val_loader: Any, model: Any, epoch: int) -> Tuple[float, float, np.
     predicts, targets = torch.tensor(predicts), torch.tensor(targets)
     best_score, best_thresh = 0.0, 0.0
 
-    for threshold in tqdm(np.linspace(0.05, 0.25, 33), disable=IN_KERNEL):
+    for threshold in tqdm(np.linspace(0.05, 0.25, 100), disable=IN_KERNEL):
         score = F_score(predicts, targets, beta=2, threshold=threshold)
         if score > best_score:
-            best_score, best_thresh = score, threshold
+            best_score, best_thresh = score, threshold.item()
 
     logger.info(f'{epoch} F2 {best_score:.4f} threshold {best_thresh:.4f}')
     logger.info(f' * F2 on validation {best_score:.4f}')
     return best_score, best_thresh, predicts.numpy()
 
-def gen_prediction(val_loader: Any, test_loader: Any, model: Any, epoch: int,
-                   model_path: str) -> np.ndarray:
-    # calculate the threshold first
-    score, threshold, predicts = validate(val_loader, model, epoch)
-
-    if args.dataset == 'test':
-        predicts, _ = inference(test_loader, model)
-
+def gen_train_prediction(data_loader: Any, model: Any, epoch: int,
+                         model_path: str) -> np.ndarray:
+    score, threshold, predicts = validate(data_loader, model, epoch)
     predicts -= threshold
 
-    name = 'test' if args.dataset == 'test' else 'train'
-    filename = f'level1_{name}_{os.path.splitext(os.path.basename(model_path))[0]}'
+    filename = os.path.splitext(os.path.basename(model_path))[0]
+    filename = f'level1_train_{filename}.yml'
+    np.save(filename, predicts)
+
+    with open(filename, 'w') as f:
+        yaml.dump({'threshold': threshold}, f)
+
+def gen_test_prediction(data_loader: Any, model: Any, model_path: str) -> np.ndarray:
+    assert model_path.endswith('.pth')
+
+    with open(model_path[:-4] + '.yml') as f:
+        threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+
+    predicts, _ = inference(data_loader, model)
+    predicts -= threshold
+
+    filename = f'level1_test_{os.path.splitext(os.path.basename(model_path))[0]}'
     np.save(filename, predicts)
 
 def run() -> float:
@@ -515,10 +528,15 @@ def run() -> float:
                                             max_period=config.cosine.max_period)
         lr_scheduler2 = None
 
-    if args.gen_predict:
+    if args.predict_oof or args.predict_test:
         print('inference mode')
         assert args.weights is not None
-        gen_prediction(val_loader, test_loader, model, last_epoch, args.weights)
+
+        if args.predict_oof:
+            gen_train_prediction(val_loader, model, last_epoch, args.weights)
+        else:
+            gen_test_prediction(test_loader, model, args.weights)
+
         sys.exit()
 
     logger.info(f'training will start from epoch {last_epoch + 1}')
@@ -603,19 +621,35 @@ def run() -> float:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', help='model configuration file (YAML)', type=str, required=True)
+    parser.add_argument('--config', help='model configuration file (YAML)', type=str)
     parser.add_argument('--lr_finder', help='invoke LR finder and exit', action='store_true')
     parser.add_argument('--weights', help='model to resume training', type=str)
-    parser.add_argument('--dataset', help='dataset for prediction, train/test',
-                        type=str, default='test')
-    parser.add_argument('--fold', help='fold number', type=int, default=0)
-    parser.add_argument('--gen_predict', help='make predictions for the testset and return', action='store_true')
+    parser.add_argument('--fold', help='fold number', type=int, default=-1)
+    parser.add_argument('--predict_oof', help='make predictions for the train set and return', action='store_true')
+    parser.add_argument('--predict_test', help='make predictions for the testset and return', action='store_true')
     parser.add_argument('--summary', help='show model summary', action='store_true')
     parser.add_argument('--lr', help='override learning rate', type=float, default=0)
     parser.add_argument('--num_epochs', help='override number of epochs', type=int, default=0)
     parser.add_argument('--num_ttas', help='override number of TTAs', type=int, default=0)
     parser.add_argument('--cosine', help='enable cosine annealing', type=bool, default=True)
     args = parser.parse_args()
+
+    if not args.config or args.fold == -1:
+        if not args.weights and args.fold == -1:
+            print('you must specify either --config or --weights')
+            sys.exit()
+
+        # f'{config.version}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth')
+        m = re.match(r'(.*)_f(\d)_e(\d+)_([.0-9]+)\.pth', os.path.basename(args.weights))
+        assert m
+
+        if not args.config:
+            args.config = f'config/{m.group(1)}.yml'
+
+        if args.fold == -1:
+            args.fold = int(m.group(2))
+
+        print(f'detected config={args.config} fold={args.fold}')
 
     config = parse_config.load(args.config, args)
 
@@ -629,6 +663,7 @@ if __name__ == '__main__':
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
 
-    log_filename = 'log_training.txt' if not args.gen_predict else 'log_predict.txt'
+    log_filename = 'log_predict.txt' if args.predict_oof or args.predict_test \
+                    else 'log_training.txt'
     logger = create_logger(os.path.join(config.experiment_dir, log_filename))
     run()

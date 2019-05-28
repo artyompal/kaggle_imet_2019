@@ -23,7 +23,8 @@ SAVE_DEBUG_IMAGES = False
 
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe: pd.DataFrame, mode: str, config: Any,
-                 augmentor: Any = None, aug_type: str = 'albu') -> None:
+                 num_ttas: int = 1, augmentor: Any = None,
+                 aug_type: str = 'albu') -> None:
         print(f'creating data_loader for {config.version} in mode={mode}')
         assert mode in ['train', 'val', 'test']
 
@@ -37,7 +38,7 @@ class ImageDataset(torch.utils.data.Dataset):
         self.num_classes = config.model.num_classes
         self.input_size = config.model.input_size
         self.rect_crop = config.data.rect_crop
-        self.num_ttas = config.test.num_ttas if mode == 'test' else 1
+        self.num_ttas = num_ttas
 
         if 'ception' in config.model.arch:
             self.transforms = transforms.Compose([
