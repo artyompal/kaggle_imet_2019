@@ -87,7 +87,7 @@ def load_data(fold: int) -> Any:
     logger.info('config:')
     logger.info(pprint.pformat(config))
 
-    full_df = pd.read_csv(find_input_file(config.train.csv))
+    full_df = pd.read_csv(find_input_file(INPUT_PATH + config.train.csv))
     print('full_df', full_df.shape)
     train_df, _ = train_val_split(full_df, fold)
     print('train_df', train_df.shape)

@@ -1,9 +1,11 @@
 #!/usr/bin/python3.6
+
 import base64
 import gzip
 import os
 import re
 import sys
+import yaml
 
 from pathlib import Path
 from glob import glob
@@ -50,6 +52,25 @@ if __name__ == '__main__':
     to_encode.extend(glob('albumentations/**/*.py'))
     to_encode.extend(arg for arg in sys.argv[2:] if os.path.exists(arg))
 
+    # parse ensemble YAML file to find necessary model configs
+    for arg in sys.argv[2:]:
+        if arg.endswith('.yml') and os.path.exists(arg):
+            with open(arg) as f:
+                ensemble = yaml.load(f, Loader=yaml.SafeLoader)
+
+            for predicts in ensemble:
+                for pred in predicts['predicts']:
+                    m = re.match(r'level1_train_(.*)_f(\d)_e(\d+)_([.0-9]+)\.npy',
+                                 os.path.basename(pred))
+                    if not m:
+                        print('could not parse filename', pred)
+                        assert m
+
+                    config = f'config/{m.group(1)}.yml'
+                    to_encode.append(config)
+
+    # print('encoding files', to_encode)
+
     file_data = {path: encode_file(path) for path in to_encode}
     printed_data = ',\n'.join([f'"{filename}": "{content}"' for filename, content in
                               file_data.items()])
@@ -59,7 +80,7 @@ if __name__ == '__main__':
         template = template.replace('{file_data}', '{' + printed_data + '}')
 
     cmd_line = ' '.join(sys.argv[1:])
-    dest_name = re.sub(r'[/ ]', '_', cmd_line)
+    dest_name = re.sub(r'[/ .]', '_', cmd_line)
     dest_name = f'kernel_{dest_name}.py'
 
     with open(dest_name, 'w') as f:

@@ -13,7 +13,7 @@ data:
         scale_both_dims: false
 
 train:
-    csv: '../input/train_conf_0.1.csv'
+    csv: 'train_conf_0.1.csv'
     batch_size: 16
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
@@ -26,7 +26,7 @@ train:
         beta_a: 0.3
 
 test:
-    csv: '../input/sample_submission.csv'
+    csv: 'sample_submission.csv'
     batch_size: 32
     num_ttas: 2
 
