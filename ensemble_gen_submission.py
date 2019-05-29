@@ -16,6 +16,7 @@ from tqdm import tqdm
 from metrics import F_score
 from debug import dprint
 
+
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 NUM_CLASSES = 1103
