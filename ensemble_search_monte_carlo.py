@@ -93,9 +93,10 @@ if __name__ == '__main__':
     ensemble = []
 
     for model, weight in zip(level1_filenames, best_weights):
-        ensemble.append({'predicts': model, 'weight': weight.item()})
+        model_filenames = [os.path.basename(f) for f in model]
+        ensemble.append({'predicts': model_filenames, 'weight': weight.item()})
 
-    filename = f'ens_{ensemble_name}_val_{best_score:.04f}.yml'
+    filename = f'{ensemble_name}_val_{best_score:.04f}.yml'
     print('saving weights to', filename)
 
     with open(filename, 'w') as f:

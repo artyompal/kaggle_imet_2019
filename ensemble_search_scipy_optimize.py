@@ -55,7 +55,10 @@ if __name__ == '__main__':
         level1_fnames, level1_train = [], []
         for fold in range(NUM_FOLDS):
             filenames = glob(f'{model_path}_f{fold}_*.npy')
-            assert len(filenames) == 1 # the model must be unique in this fold
+            if len(filenames) != 1:
+                dprint(filenames)
+                assert False # the model must be unique in this fold
+
             filename = filenames[0]
 
             print('found', filename)
@@ -96,7 +99,8 @@ if __name__ == '__main__':
     ensemble = []
 
     for model, weight in zip(level1_filenames, weights):
-        ensemble.append({'predicts': model, 'weight': weight.item()})
+        model_filenames = [os.path.basename(f) for f in model]
+        ensemble.append({'predicts': model_filenames, 'weight': weight.item()})
 
     filename = f'{ensemble_name}_val_{best_score:.04f}.yml'
     print('saving weights to', filename)
