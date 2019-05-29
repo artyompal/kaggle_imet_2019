@@ -650,11 +650,8 @@ if __name__ == '__main__':
         if not m:
             raise RuntimeError('could not parse model name')
 
-        if not args.config:
-            args.config = f'config/{m.group(1)}.yml'
-
-        if args.fold == -1:
-            args.fold = int(m.group(2))
+        args.config = f'config/{m.group(1)}.yml'
+        args.fold = int(m.group(2))
 
         print(f'detected config={args.config} fold={args.fold}')
 
