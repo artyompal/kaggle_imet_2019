@@ -44,6 +44,7 @@ if __name__ == '__main__':
         'train.py',
         'utils.py',
 
+        'ensemble_gen_submission.py',
         script_py,
         ]
 
