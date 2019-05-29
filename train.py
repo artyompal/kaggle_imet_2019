@@ -47,7 +47,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 ADDITIONAL_DATASET_PATH = '../input/imet-datasets/'
-CONFIG_PATH = 'config' if not IN_KERNEL else '../input/models-apr-20/yaml'
+CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/'
 
 
 def find_input_file(path: str) -> str:
@@ -630,7 +630,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='model configuration file (YAML)', type=str)
     parser.add_argument('--lr_finder', help='invoke LR finder and exit', action='store_true')
     parser.add_argument('--weights', help='model to resume training', type=str)
-    parser.add_argument('--fold', help='fold number', type=int, default=-1)
+    parser.add_argument('--fold', help='fold number', type=int, default=0)
     parser.add_argument('--predict_oof', help='make predictions for the train set and return', action='store_true')
     parser.add_argument('--predict_test', help='make predictions for the testset and return', action='store_true')
     parser.add_argument('--summary', help='show model summary', action='store_true')
@@ -640,8 +640,8 @@ if __name__ == '__main__':
     parser.add_argument('--cosine', help='enable cosine annealing', type=bool, default=True)
     args = parser.parse_args()
 
-    if not args.config or args.fold == -1:
-        if not args.weights and args.fold == -1:
+    if not args.config:
+        if not args.weights:
             print('you must specify either --config or --weights')
             sys.exit()
 
@@ -670,7 +670,7 @@ if __name__ == '__main__':
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
 
-    config2path = {os.path.basename(path): path for path in glob(CONFIG_PATH + '/*.yml')}
+    config2path = {os.path.basename(path): path for path in glob(CONFIG_PATH + '*.yml')}
 
     log_filename = 'log_predict.txt' if args.predict_oof or args.predict_test \
                     else 'log_training.txt'
