@@ -30,7 +30,6 @@ if __name__ == '__main__':
     ensemble_name, predicts = sys.argv[1], sys.argv[2:]
     level1_filenames: List[List[str]] = []
     level1_train_predicts: List[List[np.array]] = []
-    level1_test_predicts: List[List[np.array]] = []
 
     # load labels
     fold_num = np.load('folds.npy')
@@ -52,7 +51,7 @@ if __name__ == '__main__':
         assert m
         model_path = m.group(1)
 
-        level1_fnames, level1_train, level1_test = [], [], []
+        level1_fnames, level1_train = [], []
         for fold in range(NUM_FOLDS):
             filenames = glob(f'{model_path}_f{fold}_*.npy')
             assert len(filenames) == 1 # the model must be unique in this fold
@@ -61,11 +60,9 @@ if __name__ == '__main__':
             print('found', filename)
             level1_fnames.append(filename)
             level1_train.append(np.load(filename))
-            level1_test.append(np.load(filename.replace('level1_train_', 'level1_test_')))
 
         level1_filenames.append(level1_fnames)
         level1_train_predicts.append(level1_train)
-        level1_test_predicts.append(level1_test)
 
     # search for the best blend weights
     best_weights = np.ones(len(level1_train_predicts))
