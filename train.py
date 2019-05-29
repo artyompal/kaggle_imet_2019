@@ -47,7 +47,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 ADDITIONAL_DATASET_PATH = '../input/imet-datasets/'
-CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/yaml/'
+CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/yml/'
 
 
 def find_input_file(path: str) -> str:
@@ -440,9 +440,9 @@ def gen_train_prediction(data_loader: Any, model: Any, epoch: int,
         yaml.dump({'threshold': threshold}, f)
 
 def gen_test_prediction(data_loader: Any, model: Any, model_path: str) -> np.ndarray:
-    config_path = config2path[os.path.splitext(os.path.basename(model_path))[0] + '.yml']
+    threshold_file = threshold_files[os.path.splitext(os.path.basename(model_path))[0] + '.yml']
 
-    with open(config_path) as f:
+    with open(threshold_file) as f:
         threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
 
     predicts, _ = inference(data_loader, model)
@@ -667,7 +667,8 @@ if __name__ == '__main__':
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
 
-    config2path = {os.path.basename(path): path for path in glob(CONFIG_PATH + '*.yml')}
+    threshold_files = {os.path.basename(path): path for path in glob(CONFIG_PATH + '*.yml')}
+    assert len(threshold_files)
 
     log_filename = 'log_predict.txt' if args.predict_oof or args.predict_test \
                     else 'log_training.txt'
