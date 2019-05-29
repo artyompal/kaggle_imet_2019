@@ -47,7 +47,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 ADDITIONAL_DATASET_PATH = '../input/imet-datasets/'
-CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/'
+CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/yaml/'
 
 
 def find_input_file(path: str) -> str:
