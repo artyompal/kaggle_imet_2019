@@ -51,9 +51,10 @@ scheduler:
         threshold: 1e-3
 
 cosine:
-    start_lr: 2e-5
-    period: 4
-    period_mult: 1.1
+    start_lr: 1e-4
+    period: 3
+    period_inc: 1
+    max_period: 5
 
 loss:
     name: 'forgiving_loss'

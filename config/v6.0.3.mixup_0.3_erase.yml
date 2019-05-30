@@ -11,7 +11,7 @@ train:
     folds_file: 'folds.npy'
     max_steps_per_epoch: 15000
     enable_warmup: true
-    num_epochs: 40
+    num_epochs: 1000
     warmup:
         steps: 5000
         max_lr: 1e-4
