@@ -28,12 +28,12 @@ from tqdm import tqdm
 from easydict import EasyDict as edict
 
 import albumentations as albu
-import parse_config
 
 from data_loader import ImageDataset
 from utils import create_logger, AverageMeter
 from debug import dprint
 
+from parse_config import load_config
 from losses import get_loss
 from schedulers import get_scheduler, is_scheduler_continuous, get_warmup_scheduler
 from optimizers import get_optimizer, get_lr, set_lr
@@ -48,6 +48,9 @@ IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 ADDITIONAL_DATASET_PATH = '../input/imet-datasets/'
 CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/yml/'
+
+if not IN_KERNEL:
+    import torchsummary
 
 
 def find_input_file(path: str) -> str:
@@ -458,8 +461,12 @@ def run() -> float:
     logger.info('=' * 50)
 
     train_loader, val_loader, test_loader = load_data(args.fold)
-    model = create_model(config, logger, args)
+    logger.info(f'creating a model {config.model.arch}')
+    model = create_model(config, pretrained=args.weights is None).cuda()
     criterion = get_loss(config)
+
+    if args.summary:
+        torchsummary.summary(model, (3, config.model.input_size, config.model.input_size))
 
     if args.lr_finder:
         optimizer = get_optimizer(config, model.parameters())
@@ -496,6 +503,7 @@ def run() -> float:
     else:
         last_checkpoint = torch.load(args.weights)
         model_arch = last_checkpoint['arch'].replace('se_', 'se')
+        
         if model_arch != config.model.arch:
             dprint(model_arch)
             dprint(config.model.arch)
@@ -655,7 +663,7 @@ if __name__ == '__main__':
 
         print(f'detected config={args.config} fold={args.fold}')
 
-    config = parse_config.load(args.config, args)
+    config = load_config(args.config, args.fold)
 
     if args.num_epochs:
         config.train.num_epochs = args.num_epochs

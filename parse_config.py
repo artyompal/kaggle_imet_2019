@@ -15,11 +15,11 @@ from debug import dprint
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
-def _get_default_config(filename: str, args: Any) -> edict:
+def _get_default_config(filename: str, fold: int) -> edict:
     cfg = edict()
     cfg.in_kernel = False
     cfg.version = os.path.splitext(os.path.basename(filename))[0]
-    cfg.experiment_dir = f'../models/{cfg.version}/fold_{args.fold}/' \
+    cfg.experiment_dir = f'../models/{cfg.version}/fold_{fold}/' \
                          if not IN_KERNEL else '.'
     cfg.num_workers = min(12, multiprocessing.cpu_count())
 
@@ -140,7 +140,7 @@ def _merge_config(src: edict, dst: edict) -> edict:
         else:
             dst[k] = v
 
-def load(config_path: str, args: Any) -> edict:
+def load_config(config_path: str, fold: int) -> edict:
     loader = yaml.SafeLoader
     loader.add_implicit_resolver(
         u'tag:yaml.org,2002:float',
@@ -156,7 +156,7 @@ def load(config_path: str, args: Any) -> edict:
     with open(config_path) as f:
         yaml_config = edict(yaml.load(f, Loader=loader))
 
-    config = _get_default_config(config_path, args)
+    config = _get_default_config(config_path, fold)
     _merge_config(yaml_config, config)
 
     return config

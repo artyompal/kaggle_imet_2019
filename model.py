@@ -11,27 +11,27 @@ from senet import se_resnext50_32x4d
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 
 if not IN_KERNEL:
-    import torchsummary
     from pytorchcv.model_provider import get_model
 else:
     from model_provider import get_model
 
 
-def create_model(config: Any, logger: Any, args: Any) -> Any:
-    logger.info(f'creating a model {config.model.arch}')
+def create_model(config: Any, pretrained: bool) -> Any:
     dropout = config.model.dropout
 
     # support the deprecated model
     if config.version == '2b_se_resnext50':
-        model = se_resnext50_32x4d(pretrained='imagenet' if args.weights is None else None)
+        model = se_resnext50_32x4d(pretrained='imagenet' if pretrained else None)
         model.avg_pool = nn.AdaptiveAvgPool2d(1)
         model.last_linear = nn.Linear(model.last_linear.in_features, config.model.num_classes)
 
-        model = torch.nn.DataParallel(model).cuda()
+        model = torch.nn.DataParallel(model)
         return model
 
-    model = get_model(config.model.arch, pretrained=args.weights is None,
-                      root='../input/pytorchcv-models/')
+    if not IN_KERNEL:
+        model = get_model(config.model.arch, pretrained=pretrained)
+    else:
+        model = get_model(config.model.arch, pretrained=pretrained, root='../input/pytorchcv-models/')
 
     if config.model.arch == 'xception':
         model.features[-1].pool = nn.AdaptiveAvgPool2d(1)
@@ -67,11 +67,7 @@ def create_model(config: Any, logger: Any, args: Any) -> Any:
                  nn.Dropout(dropout),
                  nn.Linear(model.output.in_features, config.model.num_classes))
 
-    model = torch.nn.DataParallel(model).cuda()
-
-    if args.summary:
-        torchsummary.summary(model, (3, config.model.input_size, config.model.input_size))
-
+    model = torch.nn.DataParallel(model)
     return model
 
 def freeze_layers(model: Any) -> None:

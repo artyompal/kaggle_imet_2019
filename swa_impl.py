@@ -73,8 +73,9 @@ def bn_update(loader, model):
     model.apply(reset_bn)
     model.apply(lambda module: _get_momenta(module, momenta))
     n = 0
-    for input_dict in tqdm.tqdm(loader):
-        input_ = input_dict['image'].cuda(async=True)
+
+    for input_, target in tqdm.tqdm(loader):
+        input_ = input_.cuda()
         b = input_.data.size(0)
 
         momentum = b / (n + b)
