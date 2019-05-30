@@ -41,6 +41,7 @@ if __name__ == '__main__':
         'random_erase.py',
         'random_rect_crop.py',
         'schedulers.py',
+        'senet.py',
         'train.py',
         'utils.py',
 
