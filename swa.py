@@ -108,18 +108,27 @@ def validate(data_loader: Any, model: Any) -> float:
     print(f'F2 {best_score:.4f} threshold {best_thresh:.4f}')
     return best_score
 
+def parse_model_name(path: str) -> Tuple[str, int, int, float]:
+    m = re.match(r'(.*)_f(\d)_e(\d+)_([.0-9]+)\.pth', os.path.basename(path))
+    assert m
+
+    model_name = m.group(1)
+    fold = int(m.group(2))
+    epoch = int(m.group(3))
+    score = float(m.group(4))
+
+    return model_name, fold, epoch, score
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('path', help='models path', type=str)
     args = parser.parse_args()
 
     files = glob(os.path.join(args.path, '*.pth'))
+    files.sort(key=lambda path: parse_model_name(path)[2])
     assert files
-    m = re.match(r'(.*)_f(\d)_e(\d+)_([.0-9]+)\.pth', os.path.basename(files[0]))
-    assert m
 
-    model_name = m.group(1)
-    fold = int(m.group(2))
+    model_name, fold, _, __ = parse_model_name(files[0])
     print(f'model {model_name}, fold {fold}')
 
     config = load_config(f'config/{model_name}.yml', 0)
