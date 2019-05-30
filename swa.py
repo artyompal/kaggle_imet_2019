@@ -31,11 +31,10 @@ def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataF
     assert folds.shape[0] == df.shape[0]
     return df.loc[folds != fold], df.loc[folds == fold]
 
-def load_data() -> Any:
+def load_data(fold: int) -> Any:
     torch.multiprocessing.set_sharing_strategy('file_system') # type: ignore
     cudnn.benchmark = True # type: ignore
 
-    fold = 0
     full_df = pd.read_csv('../input/train.csv')
     print('full_df', full_df.shape)
     train_df, val_df = train_val_split(full_df, fold)
@@ -111,7 +110,6 @@ def validate(data_loader: Any, model: Any) -> float:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    # parser.add_argument('--coeff', help='moving average coefficient', type=float, required=True)
     parser.add_argument('path', help='models path', type=str)
     args = parser.parse_args()
 
@@ -121,8 +119,8 @@ if __name__ == '__main__':
     assert m
 
     model_name = m.group(1)
-    model_fold = m.group(2)
-    print('model is', model_name)
+    fold = int(m.group(2))
+    print(f'model {model_name}, fold {fold}')
 
     config = load_config(f'config/{model_name}.yml', 0)
 
@@ -136,9 +134,10 @@ if __name__ == '__main__':
     for i, path in enumerate(tqdm(files[1:])):
         path = torch.load(files[0], map_location='cpu')
         cur_model.load_state_dict(weights['state_dict'])
+
         swa_impl.moving_average(avg_model, cur_model, 1.0 / (i + 2))
 
-    data_loader = load_data()
+    data_loader = load_data(fold)
 
     with torch.no_grad():
         print('updating batchnorm')
@@ -154,4 +153,4 @@ if __name__ == '__main__':
         'config': config
     }
 
-    torch.save(data_to_save, f'{model_name}_f{model_fold}_e99_{score:.04f}.pth')
+    torch.save(data_to_save, f'{model_name}_f{fold}_e99_{score:.04f}.pth')
