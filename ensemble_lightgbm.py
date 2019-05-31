@@ -13,11 +13,8 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 
-from scipy.stats import describe
+from scipy import optimize
 from tqdm import tqdm
-
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.svm import SVC
 from sklearn.metrics import fbeta_score
 
 from debug import dprint
@@ -82,7 +79,8 @@ if __name__ == '__main__':
     dprint(all_predicts.shape)
     dprint(all_labels.shape)
 
-    for class_ in tqdm(range(NUM_CLASSES)):
+    C = 125
+    for class_ in range(C, C+1): # tqdm(range(NUM_CLASSES)):
         # print('-' * 80)
         # dprint(class_)
 
@@ -91,29 +89,43 @@ if __name__ == '__main__':
         x_val = all_predicts[fold_num == 0][:, class_]
         y_val = all_labels[fold_num == 0][:, class_]
 
-        # dprint(x_train.shape)
-        # dprint(y_train.shape)
-        # dprint(x_val.shape)
-        # dprint(y_val.shape)
-        #
-        # dprint(describe(x_train))
-        # dprint(describe(x_val))
-        # dprint(describe(y_train))
-        # dprint(describe(y_val))
-        #
-        # dprint(np.unique(y_val))
+        # training stage
+        lgtrain = lgb.Dataset(x_train, y_train)
+        lgvalid = lgb.Dataset(x_val, y_val)
 
+        lgbm_params =  {
+            'task': 'train',
+            # 'eval_metric' : f2_score,
+            'boosting_type': 'gbdt',
+            'objective': 'regression',
+            'metric': 'xentropy',
+            'num_leaves': 25,
+            # 'max_bin': 128,
+            'min_data_in_leaf': 10,
+            # 'max_depth': 20,
 
-        classif = SVC(kernel='linear')
-        classif.fit(x_train, y_train)
-        y_pred = classif.predict(x_val)
+            # 'feature_fraction': 0.5,
+            # 'bagging_fraction': 0.75,
+            # 'bagging_freq': 2,
+            'learning_rate': 0.003,
+            'verbose': 1
+        }
+        print("LightGBM params:", lgbm_params)
 
-        # FIXME: do I have to find the best threshold?
-        y_pred = y_pred > 0.1
+        def f2_score(y_pred, data):
+            y_true = data.get_label()
+            y_pred = y_pred > 0.1
+            # y_pred = y_pred > 0
+            return 'f2', fbeta_score(y_true, y_pred, beta=2), True
 
-        if np.sum(y_pred) > 0:
-            score = fbeta_score(y_val, y_pred, beta=2)
-        else:
-            score = 0
-
-        print('class', class_, 'F2 score:', score)
+        lgb_clf = lgb.train(
+            lgbm_params,
+            lgtrain,
+            num_boost_round=15000,
+            # num_boost_round=2000,
+            valid_sets=[lgtrain, lgvalid],
+            valid_names=['train','valid'],
+            early_stopping_rounds=100,
+            verbose_eval=10,
+            feval=f2_score
+            )
