@@ -151,7 +151,7 @@ if __name__ == '__main__':
         val_pred = lgb_clf.predict(x_val)
         f2 = fbeta_score(y_val, val_pred > gold_threshold, beta=2)
         dprint(f2)
-        filename = f'{model_dir}/lightgbm_f{level2_fold}_c{class_}_{f2:04f}.pkl'
+        filename = f'{model_dir}/lightgbm_f{level2_fold}_c{class_:04}_{f2:.04}.pkl'
 
         with open(filename, 'wb') as model_file:
             pickle.dump(lgb_clf, model_file)
