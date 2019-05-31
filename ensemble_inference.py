@@ -7,9 +7,11 @@ import yaml
 
 from glob import glob
 from typing import List
+from crypto import decrypt_file
 
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 MODEL_PATH = '../input/' if IN_KERNEL else '../best_models/'
+UNPACK_PATH = 'unpacked_models'
 
 
 def run(command: List[str]) -> None:
@@ -35,7 +37,14 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} ensemble.yml')
         sys.exit()
 
+    for path in glob(MODEL_PATH + '**/*.enc'):
+        os.makedirs(UNPACK_PATH, exist_ok=True)
+        out_path = os.path.join(UNPACK_PATH, os.path.basename(path)[:-4])
+        decrypt_file(path, out_path)
+
     model2path = {os.path.basename(path): path for path in glob(MODEL_PATH + '**/*.pth')}
+    model2path.update({os.path.basename(path): path for path in glob(UNPACK_PATH + '**/*.pth')})
+
     print('models found', model2path.keys())
     ensemble_file = sys.argv[1]
 

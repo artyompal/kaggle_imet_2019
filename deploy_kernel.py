@@ -28,6 +28,7 @@ if __name__ == '__main__':
 
     to_encode = [
         'cosine_scheduler.py',
+        'crypto.py',
         'data_loader.py',
         'debug.py',
         'easydict.py',
