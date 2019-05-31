@@ -26,8 +26,6 @@ NUM_ATTEMPTS = 100
 NUM_FOLDS = 5
 NUM_CLASSES = 1103
 
-MODEL_DIR = 'lightgbm/'
-
 def parse_labels(s: str) -> np.array:
     res = np.zeros(NUM_CLASSES)
     res[list(map(int, s.split()))] = 1
@@ -38,8 +36,10 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} predict1.npy ...')
         sys.exit()
 
-    fold = 0
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    level2_fold = 0
+
+    model_dir = f'lightgbm/fold_{level2_fold}'
+    os.makedirs(model_dir, exist_ok=True)
 
     # load data
     fold_num = np.load('folds.npy')
@@ -89,15 +89,16 @@ if __name__ == '__main__':
 
     gold_threshold = np.mean(all_thresholds)
 
-    C = 125
-    for class_ in range(C, C+1): # tqdm(range(NUM_CLASSES)):
-        # print('-' * 80)
-        # dprint(class_)
+    # C = 125
+    # for class_ in range(C, C+1): # tqdm(range(NUM_CLASSES)):
+    for class_ in range(NUM_CLASSES):
+        print('-' * 80)
+        dprint(class_)
 
-        x_train = all_predicts[fold_num != fold][:, class_]
-        y_train = all_labels[fold_num != fold][:, class_]
-        x_val = all_predicts[fold_num == fold][:, class_]
-        y_val = all_labels[fold_num == fold][:, class_]
+        x_train = all_predicts[fold_num != level2_fold][:, class_]
+        y_train = all_labels[fold_num != level2_fold][:, class_]
+        x_val = all_predicts[fold_num == level2_fold][:, class_]
+        y_val = all_labels[fold_num == level2_fold][:, class_]
 
         # dprint(x_train.shape)
         # dprint(y_train.shape)
@@ -150,7 +151,7 @@ if __name__ == '__main__':
         val_pred = lgb_clf.predict(x_val)
         f2 = fbeta_score(y_val, val_pred > gold_threshold, beta=2)
         dprint(f2)
-        filename = f'{MODEL_DIR}/lightgbm_f{fold}_c{class_}_{f2:04f}.pkl'
+        filename = f'{model_dir}/lightgbm_f{level2_fold}_c{class_}_{f2:04f}.pkl'
 
         with open(filename, 'wb') as model_file:
             pickle.dump(lgb_clf, model_file)
