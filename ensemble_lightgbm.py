@@ -82,6 +82,8 @@ if __name__ == '__main__':
     dprint(all_predicts.shape)
     dprint(all_labels.shape)
 
+    gold_threshold = np.mean(all_thresholds)
+
     C = 125
     for class_ in range(C, C+1): # tqdm(range(NUM_CLASSES)):
         # print('-' * 80)
@@ -122,7 +124,8 @@ if __name__ == '__main__':
 
         def f2_score(y_pred: np.array, data: Any) -> Any:
             y_true = data.get_label()
-            y_pred = y_pred > 0.1
+            y_pred = y_pred > gold_threshold
+
             if np.sum(y_pred) == 0:
                 return 'f2', 0, True
 
