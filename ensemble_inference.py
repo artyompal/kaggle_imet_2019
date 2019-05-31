@@ -27,7 +27,7 @@ def generate_predict(filename: str) -> None:
         assert m
 
     weights = m.group(1) + '.pth'
-    cmd = ['python3.6', 'train.py', '--predict_test', '--weights', model2path[weights]]
+    cmd = ['python3.6', 'train.py', '--num_ttas=2', '--predict_test', '--weights', model2path[weights]]
     run(cmd)
 
 if __name__ == '__main__':

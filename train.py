@@ -190,6 +190,7 @@ def load_data(fold: int) -> Any:
                                num_ttas=num_ttas_for_val, augmentor=transform_test)
 
     test_dataset = ImageDataset(test_df, mode='test', config=config,
+                                num_ttas=config.test.num_ttas,
                                 augmentor=transform_test)
 
     train_loader = torch.utils.data.DataLoader(
@@ -503,7 +504,7 @@ def run() -> float:
     else:
         last_checkpoint = torch.load(args.weights)
         model_arch = last_checkpoint['arch'].replace('se_', 'se')
-        
+
         if model_arch != config.model.arch:
             dprint(model_arch)
             dprint(config.model.arch)
