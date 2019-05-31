@@ -73,9 +73,9 @@ if __name__ == '__main__':
 
             # read threshold
             filename = os.path.basename(filename)
-            assert filename.startswith('level1_train_')
+            assert filename.startswith('level1_train_') and filename.endswith('.npy')
 
-            with open(YAML_DIR + filename[13:-4] + '.yml') as f:
+            with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
                 threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
                 all_thresholds.append(threshold)
                 data = data + threshold
