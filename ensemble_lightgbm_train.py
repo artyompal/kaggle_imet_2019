@@ -25,6 +25,7 @@ INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 NUM_ATTEMPTS = 100
 NUM_FOLDS = 5
 NUM_CLASSES = 1103
+YAML_DIR = '../yml'
 
 def parse_labels(s: str) -> np.array:
     res = np.zeros(NUM_CLASSES)
@@ -74,7 +75,7 @@ if __name__ == '__main__':
             filename = os.path.basename(filename)
             assert filename.startswith('level1_train_')
 
-            with open(filename[13:-4] + '.yml') as f:
+            with open(YAML_DIR + filename[13:-4] + '.yml') as f:
                 threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
                 all_thresholds.append(threshold)
                 data = data + threshold
@@ -94,7 +95,7 @@ if __name__ == '__main__':
 
     # C = 125
     # for class_ in range(C, C+1): # tqdm(range(NUM_CLASSES)):
-    for class_ in range(NUM_CLASSES):
+    for class_ in tqdm(range(NUM_CLASSES)):
         print('-' * 80)
         dprint(class_)
 
