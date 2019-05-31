@@ -1,6 +1,7 @@
 #!/usr/bin/python3.6
 
 import os
+import pickle
 import re
 import sys
 import yaml
@@ -25,6 +26,7 @@ NUM_ATTEMPTS = 100
 NUM_FOLDS = 5
 NUM_CLASSES = 1103
 
+MODEL_DIR = 'lightgbm/'
 
 def parse_labels(s: str) -> np.array:
     res = np.zeros(NUM_CLASSES)
@@ -37,6 +39,7 @@ if __name__ == '__main__':
         sys.exit()
 
     fold = 0
+    os.makedirs(MODEL_DIR, exist_ok=True)
 
     # load data
     fold_num = np.load('folds.npy')
@@ -143,3 +146,11 @@ if __name__ == '__main__':
             verbose_eval=50,
             feval=f2_score
             )
+
+        val_pred = lgb_clf.predict(x_val)
+        f2 = fbeta_score(y_val, val_pred > gold_threshold, beta=2)
+        dprint(f2)
+        filename = f'{MODEL_DIR}/lightgbm_f{fold}_c{class_}_{f2:04f}.pkl'
+
+        with open(filename, 'wb') as model_file:
+            pickle.dump(lgb_clf, model_file)
