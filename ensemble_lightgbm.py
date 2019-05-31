@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 
-from scipy import optimize
+from scipy.stats import describe
 from tqdm import tqdm
 from sklearn.metrics import fbeta_score
 
@@ -39,14 +39,10 @@ if __name__ == '__main__':
     # load data
     fold_num = np.load('folds.npy')
     train_df = pd.read_csv(INPUT_PATH + 'train.csv')
-
     all_labels = np.vstack(list(map(parse_labels, train_df.attribute_ids)))
-    dprint(fold_num.shape)
-    dprint(all_labels.shape)
-
 
     # build dataset
-    all_predicts_list = []
+    all_predicts_list, all_thresholds = [], []
     predicts = sys.argv[1:]
 
     for filename in predicts:
@@ -66,16 +62,23 @@ if __name__ == '__main__':
             filename = filenames[0]
             print('reading', filename)
 
+            # load data
             data = np.load(filename)
+
+            # read threshold
+            with open(filename[13:-4] + '.yml') as f:
+                threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+                all_thresholds.append(threshold)
+                data = data + threshold
+
+            if np.min(data) < 0 or np.max(data) > 1:
+                print('invalid range of data:', describe(data))
+
             predict[fold_num == fold] = data
 
         all_predicts_list.append(predict)
 
     all_predicts = np.dstack(all_predicts_list)
-
-    # FIXME: use real thresholds here
-    all_predicts -= np.min(all_predicts, axis=1, keepdims=True)
-
     dprint(all_predicts.shape)
     dprint(all_labels.shape)
 
@@ -89,14 +92,19 @@ if __name__ == '__main__':
         x_val = all_predicts[fold_num == 0][:, class_]
         y_val = all_labels[fold_num == 0][:, class_]
 
+        # dprint(x_train.shape)
+        # dprint(y_train.shape)
+        # dprint(x_val.shape)
+        # dprint(y_val.shape)
+
         # training stage
         lgtrain = lgb.Dataset(x_train, y_train)
         lgvalid = lgb.Dataset(x_val, y_val)
 
         lgbm_params =  {
             'task': 'train',
-            # 'eval_metric' : f2_score,
             'boosting_type': 'gbdt',
+            # 'objective': 'xentropy',
             'objective': 'regression',
             'metric': 'xentropy',
             'num_leaves': 25,
@@ -110,22 +118,23 @@ if __name__ == '__main__':
             'learning_rate': 0.003,
             'verbose': 1
         }
-        print("LightGBM params:", lgbm_params)
+        # print("LightGBM params:", lgbm_params)
 
-        def f2_score(y_pred, data):
+        def f2_score(y_pred: np.array, data: Any) -> Any:
             y_true = data.get_label()
             y_pred = y_pred > 0.1
-            # y_pred = y_pred > 0
+            if np.sum(y_pred) == 0:
+                return 'f2', 0, True
+
             return 'f2', fbeta_score(y_true, y_pred, beta=2), True
 
         lgb_clf = lgb.train(
             lgbm_params,
             lgtrain,
-            num_boost_round=15000,
-            # num_boost_round=2000,
+            num_boost_round=2000,
             valid_sets=[lgtrain, lgvalid],
             valid_names=['train','valid'],
             early_stopping_rounds=100,
-            verbose_eval=10,
+            verbose_eval=50,
             feval=f2_score
             )
