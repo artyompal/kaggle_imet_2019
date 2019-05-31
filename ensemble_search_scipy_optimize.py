@@ -24,6 +24,7 @@ NUM_FOLDS = 5
 NUM_CLASSES = 1103
 
 if __name__ == '__main__':
+    np.set_printoptions(linewidth=120)
     if len(sys.argv) < 4:
         print(f'usage: {sys.argv[0]} <ensemble_name> predict1.npy ...')
         sys.exit()

@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     level2_fold = 0
 
-    model_dir = f'lightgbm/fold_{level2_fold}'
+    model_dir = f'../lightgbm/fold_{level2_fold}'
     os.makedirs(model_dir, exist_ok=True)
 
     # load data
@@ -124,7 +124,7 @@ if __name__ == '__main__':
             # 'bagging_fraction': 0.75,
             # 'bagging_freq': 2,
             'learning_rate': 0.003,
-            'verbose': 1
+            'verbose': -1
         }
         # print("LightGBM params:", lgbm_params)
 
