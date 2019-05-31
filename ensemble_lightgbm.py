@@ -36,6 +36,8 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} predict1.npy ...')
         sys.exit()
 
+    fold = 0
+
     # load data
     fold_num = np.load('folds.npy')
     train_df = pd.read_csv(INPUT_PATH + 'train.csv')
@@ -89,10 +91,10 @@ if __name__ == '__main__':
         # print('-' * 80)
         # dprint(class_)
 
-        x_train = all_predicts[fold_num != 0][:, class_]
-        y_train = all_labels[fold_num != 0][:, class_]
-        x_val = all_predicts[fold_num == 0][:, class_]
-        y_val = all_labels[fold_num == 0][:, class_]
+        x_train = all_predicts[fold_num != fold][:, class_]
+        y_train = all_labels[fold_num != fold][:, class_]
+        x_val = all_predicts[fold_num == fold][:, class_]
+        y_val = all_labels[fold_num == fold][:, class_]
 
         # dprint(x_train.shape)
         # dprint(y_train.shape)
