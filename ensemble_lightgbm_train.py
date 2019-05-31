@@ -96,9 +96,6 @@ if __name__ == '__main__':
     # C = 125
     # for class_ in range(C, C+1): # tqdm(range(NUM_CLASSES)):
     for class_ in tqdm(range(NUM_CLASSES)):
-        print('-' * 80)
-        dprint(class_)
-
         x_train = all_predicts[fold_num != level2_fold][:, class_]
         y_train = all_labels[fold_num != level2_fold][:, class_]
         x_val = all_predicts[fold_num == level2_fold][:, class_]
