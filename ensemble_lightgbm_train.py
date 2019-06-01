@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     # build dataset
     all_predicts_list, all_thresholds = [], []
-    predicts = sys.argv[1:]
+    predicts = sorted(sys.argv[1:])
 
     for filename in predicts:
         assert 'level1_train_' in filename
