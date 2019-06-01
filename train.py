@@ -54,6 +54,7 @@ if not IN_KERNEL:
 
 
 def find_input_file(path: str) -> str:
+    path = INPUT_PATH + os.path.basename(path)
     return path if os.path.exists(path) else ADDITIONAL_DATASET_PATH + os.path.basename(path)
 
 def make_folds(df: pd.DataFrame) -> pd.DataFrame:
@@ -67,8 +68,7 @@ def make_folds(df: pd.DataFrame) -> pd.DataFrame:
         fold_counts = [(f, fold_cls_counts[f, cls]) for f in range(config.model.num_folds)]
         min_count = min([count for _, count in fold_counts])
         random.seed(item.Index)
-        fold = random.choice([f for f, count in fold_counts
-                              if count == min_count])
+        fold = random.choice([f for f, count in fold_counts if count == min_count])
         folds[item.Index] = fold
         for cls in item.attribute_ids.split():
             fold_cls_counts[fold, cls] += 1
