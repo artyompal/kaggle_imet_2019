@@ -7,16 +7,16 @@ model:
 
 data:
     rect_crop:
-        enable: true
+        enable: false
         min_ratio: 0.5
         max_ratio: 1.0
         scale_both_dims: false
 
 train:
     csv: 'train.csv'
-    batch_size: 6
+    batch_size: 4
     folds_file: 'folds.npy'
-    max_steps_per_epoch: 10600
+    max_steps_per_epoch: 16000
     enable_warmup: true
     num_epochs: 1000
     warmup:
@@ -54,7 +54,7 @@ loss:
     name: 'binary_cross_entropy'
 
 augmentations:
-    # affine: 'medium'
+    affine: 'medium'
     hflip: true
     blur: 0.3
     distortion: 0.2
