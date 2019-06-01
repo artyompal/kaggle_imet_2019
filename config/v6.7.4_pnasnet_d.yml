@@ -16,7 +16,7 @@ train:
     csv: 'train.csv'
     batch_size: 6
     folds_file: 'folds.npy'
-    max_steps_per_epoch: 1060
+    max_steps_per_epoch: 10600
     enable_warmup: true
     num_epochs: 1000
     accum_batches_num: 1
