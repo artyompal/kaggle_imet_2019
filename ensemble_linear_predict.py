@@ -48,7 +48,7 @@ def load_weights(weights_file: str) -> List[np.ndarray]:
     num_predicts = level1_predicts.shape[2]
     weights = []
 
-    for class_, line in enumerate(tqdm(lines)):
+    for class_, line in enumerate(lines):
         m = re.match(r'class=\d+ weights=\[((.|\n)*)\] f2=.+', line)
         assert m
 
@@ -64,42 +64,60 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} result.npy coeffs.txt predict1.npy ...')
         sys.exit()
 
-    # build dataset
     all_predicts_list, all_thresholds = [], []
     predicts = sorted(sys.argv[3:])
+    test_df = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
 
     for filename in predicts:
-        predict = np.load(filename)
+        assert 'level1_test_' in filename and '_f0_' in filename
+        m = re.match(r'(.*)_f(\d)_e\d+.*\.npy', filename)
+        assert m
+        model_path = m.group(1)
 
-        if ADD_THRESHOLD:
-            # read threshold
-            filename = os.path.basename(filename)
-            assert filename.startswith('level1_train_') and filename.endswith('.npy')
+        fold_predicts = []
 
-            with open(os.path.join(THRESHOLDS_PATH, filename[13:-4] + '.yml')) as f:
-                threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
-                all_thresholds.append(threshold)
-                predict = predict + threshold
+        for fold in range(NUM_FOLDS):
+            filenames = glob(f'{model_path}_f{fold}_*.npy')
+            if len(filenames) != 1:
+                dprint(filenames)
+                assert False # the model must be unique in this fold
 
-            if np.min(predict) < 0 or np.max(predict) > 1:
-                print('invalid range of data:', describe(predict))
+            filename = filenames[0]
+            print('reading', filename)
 
+            # load data
+            data = np.load(filename)
+
+            if ADD_THRESHOLD:
+                # read threshold
+                filename = os.path.basename(filename)
+                assert filename.startswith('level1_test_') and filename.endswith('.npy')
+
+                with open(os.path.join(THRESHOLDS_PATH, filename[12:-4] + '.yml')) as f:
+                    threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+                    all_thresholds.append(threshold)
+                    data = data + threshold
+
+            fold_predicts.append(data)
+
+        predict = np.mean(np.dstack(fold_predicts), axis=2)
         all_predicts_list.append(predict)
 
     level1_predicts = np.dstack(all_predicts_list)
     dprint(level1_predicts.shape)
 
-    gold_threshold = np.mean(all_thresholds)
     weights = load_weights(sys.argv[2])
-
     assert len(weights) == NUM_CLASSES
     level2_predicts = np.zeros((level1_predicts.shape[0], NUM_CLASSES))
 
-    for sample in tqdm(range(level1_predicts.shape[0])):
+    for sample in tqdm(range(level1_predicts.shape[0]), disable=IN_KERNEL):
         for class_ in range(NUM_CLASSES):
             x = level1_predicts[sample, class_]
             w = weights[class_]
 
             level2_predicts[sample, class_] = np.dot(w[:-1], x) + w[-1]
 
-    np.save(level2_predicts, sys.argv[1])
+    gold_threshold = np.mean(all_thresholds) if ADD_THRESHOLD else 0
+    level2_predicts -= gold_threshold
+    
+    np.save(sys.argv[1], level2_predicts)

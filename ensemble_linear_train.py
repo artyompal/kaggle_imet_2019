@@ -82,7 +82,8 @@ if __name__ == '__main__':
                     data = data + threshold
 
                 if np.min(data) < 0 or np.max(data) > 1:
-                    print('invalid range of data:', describe(data))
+                    print('invalid range of data:', describe(predict.flatten()))
+                    assert False
 
             predict[fold_num == fold] = data
 

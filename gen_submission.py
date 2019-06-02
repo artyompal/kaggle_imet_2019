@@ -29,6 +29,9 @@ if __name__ == '__main__':
     predict = np.load(sys.argv[1])
     dprint(predict.shape)
 
+    sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
+    assert sub.shape[0] == predict.shape[0]
+
     labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
               for pred in tqdm(predict, disable=IN_KERNEL)]
     dprint(len(labels))
