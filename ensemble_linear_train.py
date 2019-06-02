@@ -123,7 +123,7 @@ if __name__ == '__main__':
                                     )['x']
 
         best_score = -loss_function(weights)
-        print('class', class_, 'weights', weights, 'f2', best_score)
+        # print('class', class_, 'weights', weights, 'f2', best_score)
 
         with open(sys.argv[1], 'a') as f:
             f.write(f'class={class_} weights={weights} f2={best_score}\n')
