@@ -124,7 +124,6 @@ if __name__ == '__main__':
             w = weights[class_]
 
             level2_predicts[sample, class_] = np.dot(w[:-1], x) + w[-1]
-            # level2_predicts[sample, class_] += w[-1]
 
     dprint(describe(level2_predicts.flatten()))
     f2 = fbeta_score(ground_truth, level2_predicts > gold_threshold, beta=2,

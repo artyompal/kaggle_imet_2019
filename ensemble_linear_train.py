@@ -34,8 +34,8 @@ def parse_labels(s: str) -> np.array:
 
 if __name__ == '__main__':
     np.set_printoptions(linewidth=120)
-    if len(sys.argv) < 3:
-        print(f'usage: {sys.argv[0]} predict1.npy ...')
+    if len(sys.argv) < 4:
+        print(f'usage: {sys.argv[0]} result.txt predict1.npy ...')
         sys.exit()
 
     level2_fold = 0
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     # build dataset
     all_predicts_list, all_thresholds = [], []
-    predicts = sorted(sys.argv[1:])
+    predicts = sorted(sys.argv[2:])
 
     for filename in predicts:
         assert 'level1_train_' in filename
@@ -72,17 +72,17 @@ if __name__ == '__main__':
             # load data
             data = np.load(filename)
 
-            # read threshold
-            filename = os.path.basename(filename)
-            assert filename.startswith('level1_train_') and filename.endswith('.npy')
-
-            with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
-                threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
-                all_thresholds.append(threshold)
-                data = data + threshold
-
-            if np.min(data) < 0 or np.max(data) > 1:
-                print('invalid range of data:', describe(data))
+            # # read threshold
+            # filename = os.path.basename(filename)
+            # assert filename.startswith('level1_train_') and filename.endswith('.npy')
+            #
+            # with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
+            #     threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+            #     all_thresholds.append(threshold)
+            #     data = data + threshold
+            #
+            # if np.min(data) < 0 or np.max(data) > 1:
+            #     print('invalid range of data:', describe(data))
 
             predict[fold_num == fold] = data
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     dprint(all_predicts.shape)
     dprint(all_labels.shape)
 
-    gold_threshold = np.mean(all_thresholds)
+    # gold_threshold = np.mean(all_thresholds)
 
     for class_ in tqdm(range(NUM_CLASSES)):
         x_train = all_predicts[:, class_]
@@ -104,7 +104,8 @@ if __name__ == '__main__':
             y_pred = np.matmul(x_train, weights[:-1])
             y_pred += weights[-1]
 
-            y_pred = (y_pred > gold_threshold).astype(int)
+            # y_pred = (y_pred > gold_threshold).astype(int)
+            y_pred = (y_pred > 0).astype(int)
 
             if np.sum(y_pred) == 0:
                 res = 0
@@ -124,5 +125,5 @@ if __name__ == '__main__':
         best_score = -loss_function(weights)
         print('class', class_, 'weights', weights, 'f2', best_score)
 
-        with open('../level2_linear_model.txt', 'a') as f:
+        with open(sys.argv[1], 'a') as f:
             f.write(f'class={class_} weights={weights} f2={best_score}\n')

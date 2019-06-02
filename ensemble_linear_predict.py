@@ -72,17 +72,17 @@ if __name__ == '__main__':
             # load data
             data = np.load(filename)
 
-            # # read threshold
-            # filename = os.path.basename(filename)
-            # assert filename.startswith('level1_train_') and filename.endswith('.npy')
-            #
-            # with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
-            #     threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
-            #     all_thresholds.append(threshold)
-            #     data = data + threshold
-            #
-            # if np.min(data) < 0 or np.max(data) > 1:
-            #     print('invalid range of data:', describe(data))
+            # read threshold
+            filename = os.path.basename(filename)
+            assert filename.startswith('level1_train_') and filename.endswith('.npy')
+
+            with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
+                threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+                all_thresholds.append(threshold)
+                data = data + threshold
+
+            if np.min(data) < 0 or np.max(data) > 1:
+                print('invalid range of data:', describe(data))
 
             predict[fold_num == fold] = data
 
@@ -124,7 +124,6 @@ if __name__ == '__main__':
             w = weights[class_]
 
             level2_predicts[sample, class_] = np.dot(w[:-1], x) + w[-1]
-            # level2_predicts[sample, class_] += w[-1]
 
     dprint(describe(level2_predicts.flatten()))
     f2 = fbeta_score(ground_truth, level2_predicts > 0, beta=2,
