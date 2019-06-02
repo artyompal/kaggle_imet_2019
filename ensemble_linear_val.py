@@ -25,23 +25,46 @@ INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 NUM_ATTEMPTS = 100
 NUM_FOLDS = 5
 NUM_CLASSES = 1103
-YAML_DIR = '../yml'
+THRESHOLDS_PATH = '../yml/' if not IN_KERNEL else '../input/imet-yaml/yml/'
+ADD_THRESHOLD = True
+
 
 def parse_labels(s: str) -> np.array:
     res = np.zeros(NUM_CLASSES)
     res[list(map(int, s.split()))] = 1
     return res
 
+def load_weights(weights_file: str) -> List[np.ndarray]:
+    lines = []
+
+    with open(weights_file) as f:
+        for line in f:
+            if '[' in line:
+                lines.append(line)
+            else:
+                lines[-1] += line
+
+    assert len(lines) == NUM_CLASSES
+    num_predicts = level1_predicts.shape[2]
+    weights = []
+
+    for class_, line in enumerate(tqdm(lines)):
+        m = re.match(r'class=\d+ weights=\[((.|\n)*)\] f2=.+', line)
+        assert m
+
+        w = np.array(list(map(float, m.group(1).split())))
+        assert w.size == num_predicts + 1
+        weights.append(w)
+
+    return weights
+
 if __name__ == '__main__':
     np.set_printoptions(linewidth=120)
     if len(sys.argv) < 3:
-        print(f'usage: {sys.argv[0]} predict1.npy ...')
+        print(f'usage: {sys.argv[0]} coeffs.txt predict1.npy ...')
         sys.exit()
 
     level2_fold = 0
-
-    model_dir = f'../lightgbm/fold_{level2_fold}'
-    os.makedirs(model_dir, exist_ok=True)
 
     # load data
     fold_num = np.load('folds.npy')
@@ -50,7 +73,7 @@ if __name__ == '__main__':
 
     # build dataset
     all_predicts_list, all_thresholds = [], []
-    predicts = sorted(sys.argv[1:])
+    predicts = sorted(sys.argv[2:])
 
     for filename in predicts:
         assert 'level1_train_' in filename
@@ -72,17 +95,18 @@ if __name__ == '__main__':
             # load data
             data = np.load(filename)
 
-            # read threshold
-            filename = os.path.basename(filename)
-            assert filename.startswith('level1_train_') and filename.endswith('.npy')
+            if ADD_THRESHOLD:
+                # read threshold
+                filename = os.path.basename(filename)
+                assert filename.startswith('level1_train_') and filename.endswith('.npy')
 
-            with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
-                threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
-                all_thresholds.append(threshold)
-                data = data + threshold
+                with open(os.path.join(THRESHOLDS_PATH, filename[13:-4] + '.yml')) as f:
+                    threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+                    all_thresholds.append(threshold)
+                    data = data + threshold
 
-            if np.min(data) < 0 or np.max(data) > 1:
-                print('invalid range of data:', describe(data))
+                if np.min(data) < 0 or np.max(data) > 1:
+                    print('invalid range of data:', describe(data))
 
             predict[fold_num == fold] = data
 
@@ -94,27 +118,7 @@ if __name__ == '__main__':
 
     gold_threshold = np.mean(all_thresholds)
     ground_truth = all_labels
-    lines = []
-
-    with open('../level2_linear_model.txt') as f:
-        for line in f:
-            if '[' in line:
-                lines.append(line)
-            else:
-                lines[-1] += line
-
-    assert len(lines) == NUM_CLASSES
-    num_predicts = level1_predicts.shape[2]
-    weights = []
-
-    for class_, line in enumerate(tqdm(lines)):
-        m = re.match(r'class=\d+ weights=\[((.|\n)*)\] f2=.+', line)
-        assert m
-
-        w = np.array(list(map(float, m.group(1).split())))
-        assert w.size == num_predicts + 1
-        weights.append(w)
-
+    weights = load_weights(sys.argv[1])
     assert len(weights) == NUM_CLASSES
     level2_predicts = np.zeros((level1_predicts.shape[0], NUM_CLASSES))
 
@@ -128,4 +132,4 @@ if __name__ == '__main__':
     dprint(describe(level2_predicts.flatten()))
     f2 = fbeta_score(ground_truth, level2_predicts > gold_threshold, beta=2,
                      average='samples')
-    dprint(f2)
+    print('f2', f2)

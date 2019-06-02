@@ -25,7 +25,9 @@ INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 NUM_ATTEMPTS = 100
 NUM_FOLDS = 5
 NUM_CLASSES = 1103
-YAML_DIR = '../yml'
+THRESHOLDS_PATH = '../yml/' if not IN_KERNEL else '../input/imet-yaml/yml/'
+ADD_THRESHOLD = False
+
 
 def parse_labels(s: str) -> np.array:
     res = np.zeros(NUM_CLASSES)
@@ -39,9 +41,6 @@ if __name__ == '__main__':
         sys.exit()
 
     level2_fold = 0
-
-    model_dir = f'../lightgbm/fold_{level2_fold}'
-    os.makedirs(model_dir, exist_ok=True)
 
     # load data
     fold_num = np.load('folds.npy')
@@ -72,17 +71,18 @@ if __name__ == '__main__':
             # load data
             data = np.load(filename)
 
-            # # read threshold
-            # filename = os.path.basename(filename)
-            # assert filename.startswith('level1_train_') and filename.endswith('.npy')
-            #
-            # with open(os.path.join(YAML_DIR, filename[13:-4] + '.yml')) as f:
-            #     threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
-            #     all_thresholds.append(threshold)
-            #     data = data + threshold
-            #
-            # if np.min(data) < 0 or np.max(data) > 1:
-            #     print('invalid range of data:', describe(data))
+            if ADD_THRESHOLD:
+                # read threshold
+                filename = os.path.basename(filename)
+                assert filename.startswith('level1_train_') and filename.endswith('.npy')
+
+                with open(os.path.join(THRESHOLDS_PATH, filename[13:-4] + '.yml')) as f:
+                    threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+                    all_thresholds.append(threshold)
+                    data = data + threshold
+
+                if np.min(data) < 0 or np.max(data) > 1:
+                    print('invalid range of data:', describe(data))
 
             predict[fold_num == fold] = data
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     dprint(all_predicts.shape)
     dprint(all_labels.shape)
 
-    # gold_threshold = np.mean(all_thresholds)
+    gold_threshold = np.mean(all_thresholds) if ADD_THRESHOLD else 0
 
     for class_ in tqdm(range(NUM_CLASSES)):
         x_train = all_predicts[:, class_]
@@ -104,8 +104,7 @@ if __name__ == '__main__':
             y_pred = np.matmul(x_train, weights[:-1])
             y_pred += weights[-1]
 
-            # y_pred = (y_pred > gold_threshold).astype(int)
-            y_pred = (y_pred > 0).astype(int)
+            y_pred = (y_pred > gold_threshold).astype(int)
 
             if np.sum(y_pred) == 0:
                 res = 0
