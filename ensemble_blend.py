@@ -22,13 +22,12 @@ INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 NUM_CLASSES = 1103
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print(f'usage: {sys.argv[0]} ensemble.yml')
+    if len(sys.argv) != 3:
+        print(f'usage: {sys.argv[0]} result.npy ensemble.yml')
         sys.exit()
 
-    source_file = sys.argv[1]
-    result_name = os.path.splitext(os.path.basename(source_file))[0] + '.csv' \
-                  if not IN_KERNEL else 'submission.csv'
+    result_name = sys.argv[1]
+    source_file = sys.argv[2]
 
     sub = pd.read_csv(INPUT_PATH + 'sample_submission.csv')
     result = np.zeros((sub.shape[0], NUM_CLASSES))
@@ -44,11 +43,4 @@ if __name__ == '__main__':
 
     dprint(result.shape)
     dprint(result)
-    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
-              for pred in tqdm(result, disable=IN_KERNEL)]
-    dprint(len(labels))
-    print('labels')
-    print(np.array(labels))
-
-    sub['attribute_ids'] = labels
-    sub.to_csv(result_name, index=False)
+    np.save(result, result_name)

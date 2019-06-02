@@ -47,7 +47,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 IN_KERNEL = os.environ.get('KAGGLE_WORKING_DIR') is not None
 INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 ADDITIONAL_DATASET_PATH = '../input/imet-datasets/'
-CONFIG_PATH = 'config/' if not IN_KERNEL else '../input/imet-yaml/yml/'
+THRESHOLDS_PATH = '../yml/' if not IN_KERNEL else '../input/imet-yaml/yml/'
 
 if not IN_KERNEL:
     import torchsummary
@@ -676,7 +676,7 @@ if __name__ == '__main__':
     if not os.path.exists(config.experiment_dir):
         os.makedirs(config.experiment_dir)
 
-    threshold_files = {os.path.basename(path): path for path in glob(CONFIG_PATH + '*.yml')}
+    threshold_files = {os.path.basename(path): path for path in glob(THRESHOLDS_PATH + '*.yml')}
     assert len(threshold_files)
 
     log_filename = 'log_predict.txt' if args.predict_oof or args.predict_test \
