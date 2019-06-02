@@ -71,17 +71,18 @@ if __name__ == '__main__':
     for filename in predicts:
         predict = np.load(filename)
 
-        # read threshold
-        filename = os.path.basename(filename)
-        assert filename.startswith('level1_train_') and filename.endswith('.npy')
+        if ADD_THRESHOLD:
+            # read threshold
+            filename = os.path.basename(filename)
+            assert filename.startswith('level1_train_') and filename.endswith('.npy')
 
-        with open(os.path.join(THRESHOLDS_PATH, filename[13:-4] + '.yml')) as f:
-            threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
-            all_thresholds.append(threshold)
-            predict = predict + threshold
+            with open(os.path.join(THRESHOLDS_PATH, filename[13:-4] + '.yml')) as f:
+                threshold = yaml.load(f, Loader=yaml.SafeLoader)['threshold']
+                all_thresholds.append(threshold)
+                predict = predict + threshold
 
-        if np.min(predict) < 0 or np.max(predict) > 1:
-            print('invalid range of data:', describe(predict))
+            if np.min(predict) < 0 or np.max(predict) > 1:
+                print('invalid range of data:', describe(predict))
 
         all_predicts_list.append(predict)
 
