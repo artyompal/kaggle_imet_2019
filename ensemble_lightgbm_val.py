@@ -117,5 +117,6 @@ if __name__ == '__main__':
         val_pred = lgb_clf.predict(x_val)
         level2_predicts[:, class_] = val_pred
 
-    f2 = fbeta_score(y_val, val_pred > gold_threshold, beta=2)
+    y_val = all_labels[fold_num == level2_fold]
+    f2 = fbeta_score(y_val, level2_predicts > gold_threshold, beta=2)
     dprint(f2)
