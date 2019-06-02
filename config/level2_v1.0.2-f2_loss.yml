@@ -1,0 +1,104 @@
+
+model:
+    # arch: 'pnasnet5large'
+    input_size: 352
+    num_classes: 1103
+    dropout: 0.5
+
+data:
+    input_dir: '../predicts__tta_2x'
+    inputs:
+        - - level1_train_2b_se_resnext50_f0_e14_0.5975.npy
+          - level1_train_2b_se_resnext50_f1_e19_0.6006.npy
+          - level1_train_2b_se_resnext50_f2_e20_0.5973.npy
+          - level1_train_2b_se_resnext50_f3_e21_0.5982.npy
+          - level1_train_2b_se_resnext50_f4_e21_0.5978.npy
+        - - level1_train_2i_se_resnext101_auto_aug_f0_e27_0.5991.npy
+          - level1_train_2i_se_resnext101_auto_aug_f1_e23_0.6011.npy
+          - level1_train_2i_se_resnext101_auto_aug_f2_e27_0.5986.npy
+          - level1_train_2i_se_resnext101_auto_aug_f3_e27_0.5986.npy
+          - level1_train_2i_se_resnext101_auto_aug_f4_e22_0.6007.npy
+        - - level1_train_2j_cbam_resnet50_auto_aug_f0_e27_0.5929.npy
+          - level1_train_2j_cbam_resnet50_auto_aug_f1_e38_0.5953.npy
+          - level1_train_2j_cbam_resnet50_auto_aug_f2_e35_0.5923.npy
+          - level1_train_2j_cbam_resnet50_auto_aug_f3_e28_0.5931.npy
+          - level1_train_2j_cbam_resnet50_auto_aug_f4_e27_0.5936.npy
+        - - level1_train_2k_pnasnet_auto_aug_f0_e08_0.5949.npy
+          - level1_train_2k_pnasnet_auto_aug_f1_e15_0.5933.npy
+          - level1_train_2k_pnasnet_auto_aug_f2_e11_0.5929.npy
+          - level1_train_2k_pnasnet_auto_aug_f3_e13_0.5941.npy
+          - level1_train_2k_pnasnet_auto_aug_f4_e11_0.5936.npy
+        - - level1_train_2o_se_resnext101_def_aug_f0_e30_0.5994.npy
+          - level1_train_2o_se_resnext101_def_aug_f1_e30_0.6051.npy
+          - level1_train_2o_se_resnext101_def_aug_f2_e25_0.6022.npy
+          - level1_train_2o_se_resnext101_def_aug_f3_e26_0.6032.npy
+          - level1_train_2o_se_resnext101_def_aug_f4_e21_0.6032.npy
+        - - level1_train_4b_se_resnext101_352x352_f0_e16_0.6050.npy
+          - level1_train_4b_se_resnext101_352x352_f1_e29_0.6079.npy
+          - level1_train_4b_se_resnext101_352x352_f2_e24_0.6022.npy
+          - level1_train_4b_se_resnext101_352x352_f3_e21_0.6047.npy
+          - level1_train_4b_se_resnext101_352x352_f4_e24_0.6050.npy
+        - - level1_train_4f_se_resnext101_352x352_aug2_f0_e24_0.6058.npy
+          - level1_train_4f_se_resnext101_352x352_aug2_f1_e16_0.6081.npy
+          - level1_train_4f_se_resnext101_352x352_aug2_f2_e10_0.6059.npy
+          - level1_train_4f_se_resnext101_352x352_aug2_f3_e16_0.6053.npy
+          - level1_train_4f_se_resnext101_352x352_aug2_f4_e15_0.6098.npy
+        - - level1_train_v6.0.3.mixup_0.3_erase_f0_e36_0.6126.npy
+          - level1_train_v6.0.3.mixup_0.3_erase_f1_e34_0.6155.npy
+          - level1_train_v6.0.3.mixup_0.3_erase_f2_e38_0.6093.npy
+          - level1_train_v6.0.3.mixup_0.3_erase_f3_e33_0.6081.npy
+          - level1_train_v6.0.3.mixup_0.3_erase_f4_e40_0.6116.npy
+
+train:
+    csv: 'train.csv'
+    batch_size: 32
+    folds_file: 'folds.npy'
+    max_steps_per_epoch: 10600
+    enable_warmup: false
+    num_epochs: 1000
+    warmup:
+        steps: 5000
+        max_lr: 1e-4
+    mixup:
+        enable: false
+        beta_a: 0.3
+
+test:
+    csv: 'sample_submission.csv'
+    batch_size: 32
+    num_ttas: 2
+
+optimizer:
+    name: 'adam'
+    params:
+        lr: 1e-3
+
+scheduler:
+    name: 'reduce_lr_on_plateau'
+    params:
+        factor: 0.33
+        patience: 4
+        min_lr: 1e-7
+        threshold: 1e-3
+
+cosine:
+    start_lr: 1e-4
+    period: 3
+    period_inc: 1
+    max_period: 5
+
+loss:
+    name: 'f2_loss'
+
+augmentations:
+    # affine: 'medium'
+    hflip: true
+    blur: 0.3
+    distortion: 0.2
+    noise: 0.3
+    erase:
+        prob: 0.5
+        min_area: 0.02
+        max_area: 0.4
+        min_ratio: 0.3
+        max_ratio: 3.33
