@@ -4,7 +4,13 @@
 ./swa.py /home/cppg/dev/kaggle/imet/models/2b_se_resnext50/fold_1
 ./swa.py /home/cppg/dev/kaggle/imet/models/2b_se_resnext50/fold_2
 ./swa.py /home/cppg/dev/kaggle/imet/models/2b_se_resnext50/fold_3
-./swa.py /home/cppg/dev/kaggle/imet/models/2b_se_resnext50/fold_3
+./swa.py /home/cppg/dev/kaggle/imet/models/2b_se_resnext50/fold_4
+
+./swa.py /home/cppg/dev/kaggle/imet/models/v6.4.15.xception_363_forgiv_loss_pseudolab/fold_0
+./swa.py /home/cppg/dev/kaggle/imet/models/v6.4.15.xception_363_forgiv_loss_pseudolab/fold_1
+./swa.py /home/cppg/dev/kaggle/imet/models/v6.4.15.xception_363_forgiv_loss_pseudolab/fold_2
+./swa.py /home/cppg/dev/kaggle/imet/models/v6.4.15.xception_363_forgiv_loss_pseudolab/fold_3
+./swa.py /home/cppg/dev/kaggle/imet/models/v6.4.15.xception_363_forgiv_loss_pseudolab/fold_4
 
 ./swa.py /home/cppg/dev/kaggle/imet/models/2i_se_resnext101_auto_aug/fold_0
 ./swa.py /home/cppg/dev/kaggle/imet/models/2i_se_resnext101_auto_aug/fold_1

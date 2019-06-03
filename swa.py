@@ -191,6 +191,8 @@ if __name__ == '__main__':
         score = apply_swa(files, weight)
 
         if score > best_score:
+            best_score = score
+
             data_to_save = {
                 'arch': config.model.arch,
                 'state_dict': avg_model.state_dict(),
