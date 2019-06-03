@@ -126,6 +126,7 @@ if __name__ == '__main__':
 
     files = glob(os.path.join(args.path, '*.pth'))
     files.sort(key=lambda path: parse_model_name(path)[2])
+    print(np.array(files))
     assert files
 
     model_name, fold, _, __ = parse_model_name(files[0])
@@ -136,17 +137,18 @@ if __name__ == '__main__':
     avg_model = create_model(config, pretrained=False)
     cur_model = create_model(config, pretrained=False)
 
+    data_loader = load_data(fold)
+
     print('averaging models')
     weights = torch.load(files[0], map_location='cpu')
     avg_model.load_state_dict(weights['state_dict'])
 
     for i, path in enumerate(tqdm(files[1:])):
-        path = torch.load(files[0], map_location='cpu')
+        weights = torch.load(path, map_location='cpu')
         cur_model.load_state_dict(weights['state_dict'])
 
-        swa_impl.moving_average(avg_model, cur_model, 1.0 / (i + 2))
-
-    data_loader = load_data(fold)
+        # swa_impl.moving_average(avg_model, cur_model, 1.0 / (i + 2))
+        swa_impl.moving_average(avg_model, cur_model, 0.5)
 
     with torch.no_grad():
         print('updating batchnorm')
