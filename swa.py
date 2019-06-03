@@ -4,9 +4,10 @@
 import argparse
 import os
 import re
+import sys
 
 from glob import glob
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ from data_loader import ImageDataset
 from parse_config import load_config
 from model import create_model
 from metrics import F_score
+from debug import dprint
 
 
 def train_val_split(df: pd.DataFrame, fold: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -119,27 +121,28 @@ def parse_model_name(path: str) -> Tuple[str, int, int, float]:
 
     return model_name, fold, epoch, score
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('path', help='models path', type=str)
-    args = parser.parse_args()
+def get_score(path: str) -> float:
+    return parse_model_name(path)[3]
 
-    files = glob(os.path.join(args.path, '*.pth'))
-    files.sort(key=lambda path: parse_model_name(path)[2])
-    print(np.array(files))
-    assert files
+def get_best_score(files: List[str]) -> float:
+    return max(map(get_score, files))
 
-    model_name, fold, _, __ = parse_model_name(files[0])
-    print(f'model {model_name}, fold {fold}')
+def get_maxima(files: List[str]) -> List[str]:
+    ''' Returns the best epochs after CLR. '''
+    maxima = []
+    if len(files) == 1:
+        return files
 
-    config = load_config(f'config/{model_name}.yml', 0)
+    for i in range(1, len(files)):
+        if i == len(files) - 1 and get_score(files[i]) >= get_score(files[i - 1]):
+            maxima.append(files[i])
+        elif get_score(files[i]) >= get_score(files[i - 1]) and get_score(files[i]) > get_score(files[i + 1]):
+            maxima.append(files[i])
 
-    avg_model = create_model(config, pretrained=False)
-    cur_model = create_model(config, pretrained=False)
+    return maxima
 
-    data_loader = load_data(fold)
-
-    print('averaging models')
+def apply_swa(files: List[str], weight: float) -> float:
+    print(f'averaging models, weight {weight}')
     weights = torch.load(files[0], map_location='cpu')
     avg_model.load_state_dict(weights['state_dict'])
 
@@ -147,21 +150,77 @@ if __name__ == '__main__':
         weights = torch.load(path, map_location='cpu')
         cur_model.load_state_dict(weights['state_dict'])
 
-        # swa_impl.moving_average(avg_model, cur_model, 1.0 / (i + 2))
-        swa_impl.moving_average(avg_model, cur_model, 0.5)
+        swa_impl.moving_average(avg_model, cur_model, weight)
 
     with torch.no_grad():
         print('updating batchnorm')
         swa_impl.bn_update(data_loader, avg_model)
 
     print('predicting on validation set')
-    score = validate(data_loader, avg_model)
+    return validate(data_loader, avg_model)
 
-    data_to_save = {
-        'arch': config.model.arch,
-        'state_dict': avg_model.state_dict(),
-        'score': score,
-        'config': config
-    }
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('path', help='models path', type=str)
+    args = parser.parse_args()
 
-    torch.save(data_to_save, f'{model_name}_f{fold}_e99_{score:.04f}.pth')
+    files = glob(os.path.join(args.path, '*.pth'))
+    files.sort(key=lambda path: parse_model_name(path)[2])
+    files = list(filter(lambda model: get_score(model) >= 0.59, files))
+    print(np.array(files))
+    assert files
+
+    if len(files) < 2:
+        print('nothing to do here')
+        sys.exit()
+
+    model_name, fold, _, __ = parse_model_name(files[0])
+    print(f'model {model_name}, fold {fold}')
+    config = load_config(f'config/{model_name}.yml', 0)
+
+    avg_model = create_model(config, pretrained=False)
+    cur_model = create_model(config, pretrained=False)
+    data_loader = load_data(fold)
+
+    current_best_file = None
+    best_score = get_best_score(files)
+    dprint(best_score)
+
+    for weight in [0.3, 0.4, 0.5]:
+        print('-' * 80)
+        score = apply_swa(files, weight)
+
+        if score > best_score:
+            data_to_save = {
+                'arch': config.model.arch,
+                'state_dict': avg_model.state_dict(),
+                'score': score,
+                'config': config
+            }
+
+            if current_best_file:
+                os.unlink(current_best_file)
+
+            current_best_file = f'{model_name}_f{fold}_e99_{score:.04f}.pth'
+            torch.save(data_to_save, current_best_file)
+
+    # best_checkpoints = get_maxima(files)
+    # dprint(best_checkpoints)
+    #
+    # for weight in [0.3, 0.5, 0.7]:
+    #     data_loader = load_data(fold)
+    #     score = apply_swa(files, weight)
+    #
+    #     if score > best_score:
+    #         data_to_save = {
+    #             'arch': config.model.arch,
+    #             'state_dict': avg_model.state_dict(),
+    #             'score': score,
+    #             'config': config
+    #         }
+    #
+    #         if current_best_file:
+    #             os.unlink(current_best_file)
+    #
+    #         current_best_file = f'{model_name}_f{fold}_e99_{score:.04f}.pth'
+    #         torch.save(data_to_save, current_best_file)
