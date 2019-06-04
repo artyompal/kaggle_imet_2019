@@ -511,10 +511,11 @@ def run() -> float:
             assert model_arch == config.model.arch
 
         model.load_state_dict(last_checkpoint['state_dict'])
-        optimizer.load_state_dict(last_checkpoint['optimizer'])
+        if 'optimizer' in last_checkpoint.keys():
+            optimizer.load_state_dict(last_checkpoint['optimizer'])
         logger.info(f'checkpoint loaded: {args.weights}')
 
-        last_epoch = last_checkpoint['epoch']
+        last_epoch = last_checkpoint['epoch'] if 'epoch' in last_checkpoint.keys() else 99
         logger.info(f'loaded the model from epoch {last_epoch}')
 
         if args.lr != 0:
