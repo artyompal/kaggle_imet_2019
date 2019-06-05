@@ -178,7 +178,9 @@ def load_data(fold: int) -> Any:
     else:
         transform_test = albu.Compose([
             albu.PadIfNeeded(config.model.input_size, config.model.input_size),
-            albu.CenterCrop(height=config.model.input_size, width=config.model.input_size),
+            # albu.CenterCrop(height=config.model.input_size, width=config.model.input_size),
+            albu.RandomCrop(height=config.model.input_size, width=config.model.input_size),
+            albu.HorizontalFlip(.5)
         ])
 
 
@@ -658,7 +660,8 @@ if __name__ == '__main__':
         # f'{config.version}_f{args.fold}_e{epoch:02d}_{score:.04f}.pth')
         m = re.match(r'(.*)_f(\d)_e(\d+)_([.0-9]+)\.pth', os.path.basename(args.weights))
         if not m:
-            raise RuntimeError('could not parse model name')
+            print('could not parse model name', os.path.basename(args.weights))
+            assert False
 
         args.config = f'config/{m.group(1)}.yml'
         args.fold = int(m.group(2))

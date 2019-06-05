@@ -43,4 +43,4 @@ if __name__ == '__main__':
 
     dprint(result.shape)
     dprint(result)
-    np.save(result, result_name)
+    np.save(result_name, result)

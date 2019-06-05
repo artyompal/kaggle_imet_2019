@@ -37,19 +37,28 @@ if __name__ == '__main__':
         print(f'usage: {sys.argv[0]} ensemble.yml')
         sys.exit()
 
+    ensemble_file = sys.argv[1]
+    with open(ensemble_file) as f:
+        ensemble = yaml.load(f, Loader=yaml.SafeLoader)
+
+    all_models = set()
+    for predicts in ensemble:
+        for pred in predicts['predicts']:
+            filename = pred.replace('_train_', '_test_')
+            m = re.match(r'level1_test_(.*).npy', os.path.basename(filename))
+            assert m
+            all_models.add(m.group(1) + '.pth')
+
     for path in glob(MODEL_PATH + '**/*.enc'):
-        os.makedirs(UNPACK_PATH, exist_ok=True)
-        out_path = os.path.join(UNPACK_PATH, os.path.basename(path)[:-4])
-        decrypt_file(path, out_path)
+        if os.path.basename(path)[:-4] in all_models:
+            os.makedirs(UNPACK_PATH, exist_ok=True)
+            out_path = os.path.join(UNPACK_PATH, os.path.basename(path)[:-4])
+            decrypt_file(path, out_path)
 
     model2path = {os.path.basename(path): path for path in glob(MODEL_PATH + '**/*.pth')}
     model2path.update({os.path.basename(path): path for path in glob(UNPACK_PATH + '**/*.pth')})
 
     print('models found', model2path.keys())
-    ensemble_file = sys.argv[1]
-
-    with open(ensemble_file) as f:
-        ensemble = yaml.load(f, Loader=yaml.SafeLoader)
 
     for predicts in ensemble:
         for pred in predicts['predicts']:

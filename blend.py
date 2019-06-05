@@ -10,7 +10,7 @@ INPUT_PATH = '../input/imet-2019-fgvc6/' if IN_KERNEL else '../input/'
 
 if __name__ == '__main__':
     if len(sys.argv) < 4 or len(sys.argv) % 2 != 0:
-        print(f'usage: {sys.argv[0]} result.csv submission1.npy weight1...')
+        print(f'usage: {sys.argv[0]} result.npy weight1...')
         sys.exit()
 
     result_name = sys.argv[1]
@@ -29,12 +29,13 @@ if __name__ == '__main__':
         data = np.load(pred)
         result += data * w
 
-    dprint(result.shape)
-    dprint(result)
-    labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
-              for pred in tqdm(result, disable=IN_KERNEL)]
-    dprint(len(labels))
-    dprint(np.array(labels))
+    # dprint(result.shape)
+    # dprint(result)
+    # labels = [" ".join([str(i) for i, p in enumerate(pred) if p > 0])
+    #           for pred in tqdm(result, disable=IN_KERNEL)]
+    # dprint(len(labels))
+    # dprint(np.array(labels))
 
-    sub['attribute_ids'] = labels
-    sub.to_csv(result_name, index=False)
+    # sub['attribute_ids'] = labels
+    # sub.to_csv(result_name, index=False)
+    np.save(result_name, result)
