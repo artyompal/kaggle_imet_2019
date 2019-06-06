@@ -1,0 +1,49 @@
+- predicts:
+  - level1_train_2b_se_resnext50_f0_e14_0.5975.npy
+  - level1_train_2b_se_resnext50_f1_e19_0.6006.npy
+  - level1_train_2b_se_resnext50_f2_e20_0.5973.npy
+  - level1_train_2b_se_resnext50_f3_e21_0.5982.npy
+  - level1_train_2b_se_resnext50_f4_e21_0.5978.npy
+  weight: 0.143100754915091
+- predicts:
+  - level1_train_2i_se_resnext101_auto_aug_f0_e27_0.5991.npy
+  - level1_train_2i_se_resnext101_auto_aug_f1_e23_0.6011.npy
+  - level1_train_2i_se_resnext101_auto_aug_f2_e27_0.5986.npy
+  - level1_train_2i_se_resnext101_auto_aug_f3_e27_0.5986.npy
+  - level1_train_2i_se_resnext101_auto_aug_f4_e22_0.6007.npy
+  weight: 0.14269951765665212
+- predicts:
+  - level1_train_2j_cbam_resnet50_auto_aug_f0_e27_0.5929.npy
+  - level1_train_2j_cbam_resnet50_auto_aug_f1_e38_0.5953.npy
+  - level1_train_2j_cbam_resnet50_auto_aug_f2_e35_0.5923.npy
+  - level1_train_2j_cbam_resnet50_auto_aug_f3_e28_0.5931.npy
+  - level1_train_2j_cbam_resnet50_auto_aug_f4_e27_0.5936.npy
+  weight: 0.14334315145900228
+- predicts:
+  - level1_train_2k_pnasnet_auto_aug_f0_e08_0.5949.npy
+  - level1_train_2k_pnasnet_auto_aug_f1_e15_0.5933.npy
+  - level1_train_2k_pnasnet_auto_aug_f2_e11_0.5929.npy
+  - level1_train_2k_pnasnet_auto_aug_f3_e13_0.5941.npy
+  - level1_train_2k_pnasnet_auto_aug_f4_e11_0.5936.npy
+  weight: 0.14785143628014652
+- predicts:
+  - level1_train_2o_se_resnext101_def_aug_f0_e30_0.5994.npy
+  - level1_train_2o_se_resnext101_def_aug_f1_e30_0.6051.npy
+  - level1_train_2o_se_resnext101_def_aug_f2_e25_0.6022.npy
+  - level1_train_2o_se_resnext101_def_aug_f3_e26_0.6032.npy
+  - level1_train_2o_se_resnext101_def_aug_f4_e21_0.6032.npy
+  weight: 0.14240226248948623
+- predicts:
+  - level1_train_4b_se_resnext101_352x352_f0_e16_0.6050.npy
+  - level1_train_4b_se_resnext101_352x352_f1_e29_0.6079.npy
+  - level1_train_4b_se_resnext101_352x352_f2_e24_0.6022.npy
+  - level1_train_4b_se_resnext101_352x352_f3_e21_0.6047.npy
+  - level1_train_4b_se_resnext101_352x352_f4_e24_0.6050.npy
+  weight: 0.14358047513055977
+- predicts:
+  - level1_train_4f_se_resnext101_352x352_aug2_f0_e24_0.6058.npy
+  - level1_train_4f_se_resnext101_352x352_aug2_f1_e16_0.6081.npy
+  - level1_train_4f_se_resnext101_352x352_aug2_f2_e10_0.6059.npy
+  - level1_train_4f_se_resnext101_352x352_aug2_f3_e16_0.6053.npy
+  - level1_train_4f_se_resnext101_352x352_aug2_f4_e15_0.6098.npy
+  weight: 0.14278971295092835
